@@ -2,29 +2,35 @@
 
 Starter Django web app with a mobile-friendly web interface (Bootstrap) for a simple “wallet + transactions” flow.
 
-## Quickstart (Windows / PowerShell)
+## Run the project (Windows / PowerShell)
 
-Create venv + install deps:
+### 1) Create venv + install deps
 
 ```powershell
 python -m venv .venv
+.\.venv\Scripts\python -m pip install --upgrade pip
 .\.venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-Create your environment file:
+### 2) Create your environment file
 
 ```powershell
 copy env.example .env
 ```
 
-Run migrations + create admin user:
+### 3) Run migrations
 
 ```powershell
 .\.venv\Scripts\python manage.py migrate
+```
+
+### 4) Create a user (recommended: superuser)
+
+```powershell
 .\.venv\Scripts\python manage.py createsuperuser
 ```
 
-Start the server:
+### 5) Start the server
 
 ```powershell
 .\.venv\Scripts\python manage.py runserver
@@ -34,18 +40,27 @@ Open:
 - App: `http://127.0.0.1:8000/`
 - Admin: `http://127.0.0.1:8000/admin/`
 
+### External API (required for client search / sending balance)
+
+By default it uses:
+- `YILDIZTOP_API_BASE=https://yildiztop.com/api`
+
+You can override it in `.env` if needed.
+
 ## What’s implemented
 
 - Login/logout (Django auth)
 - Responsive UI (Bootstrap 5 via CDN)
-- Wallet model per user
-- Transactions: deposit/withdraw with pending/approved/rejected status
-- Simple dashboard showing balance + latest transactions
+- Wallet per local user (stored `Wallet.balance`)
+- Create transaction:
+  - choose external client (searchable dropdown, referral token search)
+  - if amount > wallet balance → show warning and do not send / do not store
+  - if sent successfully → POST update-balance to external API, store transaction history, decrement wallet balance
+- Dashboard showing wallet balance + latest transactions
 
 ## Next steps (typical for MobCash)
 
 - Agent roles + customer management
-- Manual approval flow (agent/admin approves pending tx)
 - Integrations with payment providers
 - Audit logs + limits + KYC
 
