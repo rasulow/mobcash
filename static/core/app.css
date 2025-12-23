@@ -1,0 +1,224 @@
+/* Mobile-app-like look on top of Bootstrap */
+
+:root {
+  --mc-bg1: #0b1220;
+  --mc-bg2: #0f1a33;
+  --mc-card: rgba(255, 255, 255, 0.06);
+  --mc-border: rgba(255, 255, 255, 0.12);
+  --mc-text: rgba(255, 255, 255, 0.92);
+  --mc-muted: rgba(255, 255, 255, 0.65);
+  --mc-accent: #5b8cff;
+  --mc-accent2: #7c5cff;
+}
+
+/* Background */
+.mc-body {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 15% 10%, rgba(91, 140, 255, 0.30), transparent 60%),
+    radial-gradient(900px 500px at 85% 0%, rgba(124, 92, 255, 0.22), transparent 55%),
+    linear-gradient(180deg, var(--mc-bg1), var(--mc-bg2));
+  color: var(--mc-text);
+}
+
+/* Navbar */
+.mc-nav {
+  background: rgba(12, 18, 34, 0.6);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.navbar-dark .navbar-nav .nav-link {
+  color: rgba(255, 255, 255, 0.82);
+}
+.navbar-dark .navbar-nav .nav-link:hover {
+  color: #ffffff;
+}
+
+/* Cards */
+.card {
+  background: var(--mc-card);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--mc-text);
+}
+.card .text-muted,
+.text-muted {
+  color: var(--mc-muted) !important;
+}
+
+.shadow-sm {
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(135deg, var(--mc-accent), var(--mc-accent2));
+  border: 0;
+}
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+.btn-outline-secondary {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.85);
+}
+.btn-outline-secondary:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Forms */
+.form-control,
+.form-select {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--mc-text);
+}
+.form-control:focus,
+.form-select:focus {
+  box-shadow: 0 0 0 0.2rem rgba(91, 140, 255, 0.25);
+  border-color: rgba(91, 140, 255, 0.55);
+}
+
+/* Tables */
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--mc-text);
+  --bs-table-border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Dropdown user chip */
+.mc-userchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+}
+.mc-userchip:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+.mc-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  background: linear-gradient(135deg, var(--mc-accent), var(--mc-accent2));
+  color: white;
+}
+.mc-username {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-menu {
+  background: rgba(18, 26, 48, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.dropdown-item,
+.dropdown-item-text,
+.dropdown-header {
+  color: rgba(255, 255, 255, 0.90);
+}
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.dropdown-divider {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Client dropdown */
+.mc-client-picker {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mc-client-picker::after {
+  content: "▾";
+  margin-left: 0.75rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+.mc-client-menu {
+  border-radius: 14px;
+}
+.mc-client-results .list-group-item {
+  background: rgba(255, 255, 255, 0.04);
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+}
+.mc-client-results .list-group-item:first-child {
+  border-top: 0;
+}
+.mc-client-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem;
+}
+.mc-client-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.mc-client-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--mc-accent), var(--mc-accent2));
+  color: white;
+  flex: 0 0 auto;
+}
+.mc-client-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.mc-client-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mc-client-email {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.65);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Alerts */
+.alert {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Small tweaks for mobile spacing */
+@media (max-width: 576px) {
+  main.container {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  /* Make the profile button feel like an icon on mobile */
+  .mc-userchip {
+    padding: 0.25rem 0.4rem;
+  }
+}
+
+

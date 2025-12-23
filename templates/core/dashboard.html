@@ -5,9 +5,9 @@
   <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
     <div>
       <h1 class="h3 mb-1">Dashboard</h1>
-      <div class="text-muted">Welcome, <span class="fw-semibold">{{ request.user.username }}</span></div>
+      <div class="text-muted">Welcome back, <span class="fw-semibold">{{ request.user.username }}</span></div>
     </div>
-    <div>
+    <div class="d-flex gap-2">
       <a class="btn btn-primary" href="{% url 'transaction_create' %}">New transaction</a>
     </div>
   </div>
@@ -17,7 +17,7 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <div class="text-muted">Wallet balance</div>
-          <div class="display-6 fw-semibold">{{ wallet.balance }} {{ wallet.currency }}</div>
+          <div class="display-6 fw-semibold">{{ wallet.balance }} <span class="fs-5">{{ wallet.currency }}</span></div>
           <div class="text-muted small mt-2">Balance updates only when transactions are approved.</div>
         </div>
       </div>
@@ -32,31 +32,37 @@
             <table class="table table-sm align-middle mb-0">
               <thead>
                 <tr>
-                  <th>Type</th>
+                  <th>ID</th>
+                  <th>Referral token</th>
+                  <th>Username</th>
                   <th class="text-end">Amount</th>
-                  <th>Status</th>
                   <th class="text-nowrap">Created</th>
                 </tr>
               </thead>
               <tbody>
                 {% for tx in transactions %}
                   <tr>
-                    <td class="text-capitalize">{{ tx.type }}</td>
-                    <td class="text-end">{{ tx.amount }}</td>
-                    <td>
-                      {% if tx.status == "approved" %}
-                        <span class="badge text-bg-success">Approved</span>
-                      {% elif tx.status == "rejected" %}
-                        <span class="badge text-bg-danger">Rejected</span>
+                    <td class="text-muted">{{ tx.id }}</td>
+                    <td class="text-truncate" style="max-width: 220px;">
+                      {% if tx.external_referral_token %}
+                        <span class="font-monospace">{{ tx.external_referral_token }}</span>
                       {% else %}
-                        <span class="badge text-bg-warning">Pending</span>
+                        <span class="text-muted">—</span>
                       {% endif %}
                     </td>
+                    <td class="text-truncate" style="max-width: 220px;">
+                      {% if tx.external_user_name %}
+                        <span class="fw-semibold">{{ tx.external_user_name }}</span>
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">{{ tx.amount }}</td>
                     <td class="text-nowrap">{{ tx.created_at|date:"Y-m-d H:i" }}</td>
                   </tr>
                 {% empty %}
                   <tr>
-                    <td colspan="4" class="text-muted">No transactions yet.</td>
+                    <td colspan="5" class="text-muted">No transactions yet.</td>
                   </tr>
                 {% endfor %}
               </tbody>

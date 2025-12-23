@@ -11,11 +11,48 @@
 
       <div class="card shadow-sm">
         <div class="card-body p-4">
+          <p class="text-muted mb-4">Submit a deposit or withdrawal. It will be marked as pending until approved.</p>
           <form method="post">
             {% csrf_token %}
             <div class="mb-3">
-              <label class="form-label">Type</label>
-              {{ form.type }}
+              <label class="form-label">Client</label>
+
+              {# Keep the real select for form submission; enhanced UI below will drive it #}
+              <div class="d-none">
+                {{ form.client_id }}
+              </div>
+              <noscript>
+                <div class="mt-2">
+                  {{ form.client_id }}
+                </div>
+              </noscript>
+
+              <div class="dropdown mc-client-dd">
+                <button
+                  id="clientPickerBtn"
+                  class="form-control text-start mc-client-picker"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  <span class="mc-client-picker-label">Select a client…</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end shadow-sm p-2 mc-client-menu" style="width: min(520px, 92vw);">
+                  <div class="px-2 pb-2">
+                    <input
+                      id="clientSearch"
+                      class="form-control mc-client-search"
+                      type="search"
+                      placeholder="Search name/email or paste referral token…"
+                      autocomplete="off"
+                    />
+                    <div class="form-text text-muted mt-1">
+                      Referral token triggers API search.
+                    </div>
+                  </div>
+                  <div class="mc-client-results list-group list-group-flush" id="clientResults"></div>
+                </div>
+              </div>
             </div>
             <div class="mb-3">
               <label class="form-label">Amount</label>
@@ -25,12 +62,125 @@
               <label class="form-label">Note (optional)</label>
               {{ form.note }}
             </div>
-            <button class="btn btn-primary" type="submit">Submit</button>
+            <div class="d-grid d-sm-flex gap-2">
+              <button class="btn btn-primary" type="submit">Submit</button>
+              <a class="btn btn-outline-secondary" href="{% url 'dashboard' %}">Cancel</a>
+            </div>
           </form>
         </div>
       </div>
     </div>
   </div>
+
+  <script>
+    (function () {
+      const input = document.getElementById("clientSearch");
+      const select = document.getElementById("id_client_id");
+      const resultsEl = document.getElementById("clientResults");
+      const btn = document.getElementById("clientPickerBtn");
+      if (!input || !select || !resultsEl || !btn) return;
+
+      const labelEl = btn.querySelector(".mc-client-picker-label");
+      const originalOptions = Array.from(select.options).map((o) => ({
+        value: o.value,
+        text: o.text,
+      }));
+
+      function parseOptionText(text) {
+        // "name (email)" -> {name,email}
+        const m = text.match(/^(.*?)(?:\s*\(([^)]+)\))?\s*$/);
+        const name = (m && m[1] ? m[1] : text).trim();
+        const email = (m && m[2] ? m[2] : "").trim();
+        return { name, email };
+      }
+
+      function renderList(items) {
+        resultsEl.innerHTML = "";
+        if (!items || items.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "px-3 py-2 text-muted small";
+          empty.textContent = "No clients found.";
+          resultsEl.appendChild(empty);
+          return;
+        }
+        for (const it of items) {
+          const { name, email } = parseOptionText(it.text);
+          const a = document.createElement("button");
+          a.type = "button";
+          a.className = "list-group-item list-group-item-action mc-client-item";
+          a.dataset.value = it.value;
+
+          const initial = (name || "?").slice(0, 1).toUpperCase();
+          a.innerHTML =
+            '<span class="mc-client-avatar" aria-hidden="true">' +
+            initial +
+            "</span>" +
+            '<span class="mc-client-main">' +
+            '<span class="mc-client-name"></span>' +
+            (email ? '<span class="mc-client-email"></span>' : "") +
+            "</span>";
+          a.querySelector(".mc-client-name").textContent = name || it.text;
+          if (email) a.querySelector(".mc-client-email").textContent = email;
+
+          a.addEventListener("click", () => {
+            select.value = String(it.value);
+            if (labelEl) labelEl.textContent = it.text;
+            // close dropdown
+            const dd = bootstrap.Dropdown.getOrCreateInstance(btn);
+            dd.hide();
+          });
+          resultsEl.appendChild(a);
+        }
+      }
+
+      function looksLikeReferralToken(q) {
+        const s = (q || "").trim();
+        if (s.length < 6) return false;
+        return /^[a-zA-Z0-9]+$/.test(s);
+      }
+
+      function localFilter(q) {
+        const qq = (q || "").trim().toLowerCase();
+        if (!qq) return renderList(originalOptions);
+        return renderList(originalOptions.filter((o) => o.text.toLowerCase().includes(qq)));
+      }
+
+      function setSelectionFromSelect() {
+        const opt = select.options[select.selectedIndex];
+        if (opt && opt.value) {
+          if (labelEl) labelEl.textContent = opt.text;
+        } else if (labelEl) {
+          labelEl.textContent = "Select a client…";
+        }
+      }
+
+      // init
+      renderList(originalOptions);
+      setSelectionFromSelect();
+
+      let t = null;
+      input.addEventListener("input", function () {
+        const q = input.value || "";
+        localFilter(q);
+
+        if (!looksLikeReferralToken(q)) return;
+        if (t) clearTimeout(t);
+        t = setTimeout(async () => {
+          try {
+            const url = "{% url 'api_clients' %}" + "?referral_token=" + encodeURIComponent(q.trim());
+            const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const results = (data && data.results) || [];
+            if (!Array.isArray(results) || results.length === 0) return;
+            renderList(results.map((r) => ({ value: String(r.id), text: r.label || String(r.id) })));
+          } catch (e) {
+            // ignore
+          }
+        }, 350);
+      });
+    })();
+  </script>
 {% endblock %}
 
 

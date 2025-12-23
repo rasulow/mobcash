@@ -6,6 +6,7 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("transactions/new/", views.transaction_create, name="transaction_create"),
+    path("api/clients/", views.api_clients, name="api_clients"),
 ]
 
 
