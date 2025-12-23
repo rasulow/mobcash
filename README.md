@@ -47,6 +47,16 @@ By default it uses:
 
 You can override it in `.env` if needed.
 
+## Static files (production)
+
+This project is configured with **WhiteNoise**, so after you run:
+
+```powershell
+.\.venv\Scripts\python manage.py collectstatic --noinput
+```
+
+the app can serve static files from `staticfiles/` (useful for simple deployments).
+
 ## What’s implemented
 
 - Login/logout (Django auth)
