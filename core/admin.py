@@ -18,9 +18,12 @@ class TransactionAdmin(ModelAdmin):
         "external_referral_token",
         "external_user_name",
         "amount",
-        "created_at",
+        "created_at_fmt",
     )
-    list_filter = ("created_at",)
+    list_filter = (
+        ("wallet__user", admin.RelatedOnlyFieldListFilter),
+        ("created_at", admin.DateFieldListFilter),
+    )
     search_fields = (
         "wallet__user__username",
         "wallet__user__email",
@@ -32,6 +35,11 @@ class TransactionAdmin(ModelAdmin):
     @admin.display(description="User", ordering="wallet__user__username")
     def wallet_user(self, obj: Transaction) -> str:
         return obj.wallet.user.get_username()
+
+    @admin.display(description="Created", ordering="created_at")
+    def created_at_fmt(self, obj: Transaction) -> str:
+        # dd.mm.YYYY hh:mm:ss
+        return obj.created_at.strftime("%d.%m.%Y %H:%M:%S")
 
     # Make transactions immutable in admin (read-only history)
     def has_add_permission(self, request):
