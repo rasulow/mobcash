@@ -33,4 +33,15 @@ class TransactionAdmin(ModelAdmin):
     def wallet_user(self, obj: Transaction) -> str:
         return obj.wallet.user.get_username()
 
+    # Make transactions immutable in admin (read-only history)
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Allow viewing (with view permission) but disallow edits.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 # Register your models here.
