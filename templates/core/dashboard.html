@@ -1,14 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · MobCash{% endblock %}
+{% block title %}Панель · MobCash{% endblock %}
 
 {% block content %}
   <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
     <div>
-      <h1 class="h3 mb-1">Dashboard</h1>
-      <div class="text-muted">Welcome back, <span class="fw-semibold">{{ request.user.username }}</span></div>
+      <h1 class="h3 mb-1">Панель</h1>
+      <div class="text-muted">С возвращением, <span class="fw-semibold">{{ request.user.username }}</span></div>
     </div>
     <div class="d-flex gap-2">
-      <a class="btn btn-primary" href="{% url 'transaction_create' %}">New transaction</a>
+      <a class="btn btn-primary" href="{% url 'transaction_create' %}">Новая операция</a>
+      {% if is_cashier %}
+        <a class="btn btn-outline-secondary" href="{% url 'cashier_deposit' %}">Пополнение кассиром</a>
+      {% endif %}
     </div>
   </div>
 
@@ -18,7 +21,7 @@
         <div class="card-body">
           <div class="text-muted">Wallet balance</div>
           <div class="display-6 fw-semibold">{{ wallet.balance }} <span class="fs-5">{{ wallet.currency }}</span></div>
-          <div class="text-muted small mt-2">Balance updates only when transactions are approved.</div>
+          <div class="text-muted small mt-2">Баланс обновляется после успешной операции.</div>
         </div>
       </div>
     </div>
@@ -26,23 +29,65 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center">
-            <h2 class="h5 mb-0">Recent transactions</h2>
+            <h2 class="h5 mb-0">Последние операции</h2>
+            {% if is_cashier %}
+              <form class="d-flex gap-2 align-items-center" method="get" id="cashierFilterForm">
+                <div class="dropdown">
+                  <select class="d-none" name="user" id="cashierUserSelect">
+                    <option value="" {% if not filter_user_id %}selected{% endif %}>Все пользователи</option>
+                    {% for u in user_choices %}
+                      <option value="{{ u.wallet__user_id }}" {% if filter_user_id == u.wallet__user_id|stringformat:"s" %}selected{% endif %}>
+                        {{ u.wallet__user__username }}
+                      </option>
+                    {% endfor %}
+                  </select>
+
+                  <button
+                    id="cashierUserBtn"
+                    class="btn btn-sm btn-outline-secondary mc-picker-btn"
+                    type="button"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    style="min-width: 200px;"
+                  >
+                    <span id="cashierUserBtnLabel">Все пользователи</span>
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-end shadow-sm p-2 mc-picker-menu" style="width: min(420px, 92vw);">
+                    <div class="px-2 pb-2">
+                      <input
+                        id="cashierUserSearch"
+                        class="form-control form-control-sm"
+                        type="search"
+                        placeholder="Поиск пользователя…"
+                        autocomplete="off"
+                      />
+                    </div>
+                    <div class="mc-picker-results list-group list-group-flush" id="cashierUserResults"></div>
+                  </div>
+                </div>
+                <button class="btn btn-sm btn-primary" type="submit">Применить</button>
+              </form>
+            {% endif %}
           </div>
           <div class="table-responsive mt-3">
             <table class="table table-sm align-middle mb-0">
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Referral token</th>
-                  <th>Username</th>
-                  <th class="text-end">Amount</th>
-                  <th class="text-nowrap">Created</th>
+                  <th>Тип</th>
+                  {% if is_cashier %}<th>User</th>{% endif %}
+                  <th>Токен</th>
+                  <th>Клиент</th>
+                  <th class="text-end">Сумма</th>
+                  <th class="text-nowrap">Дата</th>
                 </tr>
               </thead>
               <tbody>
                 {% for tx in transactions %}
                   <tr>
                     <td class="text-muted">{{ tx.id }}</td>
+                    <td class="text-capitalize">{{ tx.type }}</td>
+                    {% if is_cashier %}<td class="text-muted">{{ tx.wallet.user.username }}</td>{% endif %}
                     <td class="text-truncate" style="max-width: 220px;">
                       {% if tx.external_referral_token %}
                         <span class="font-monospace">{{ tx.external_referral_token }}</span>
@@ -62,7 +107,7 @@
                   </tr>
                 {% empty %}
                   <tr>
-                    <td colspan="5" class="text-muted">No transactions yet.</td>
+                    <td colspan="{% if is_cashier %}7{% else %}6{% endif %}" class="text-muted">Операций пока нет.</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -72,6 +117,65 @@
       </div>
     </div>
   </div>
+
+  {% if is_cashier %}
+    <script>
+      (function () {
+        const form = document.getElementById("cashierFilterForm");
+        const select = document.getElementById("cashierUserSelect");
+        const btn = document.getElementById("cashierUserBtn");
+        const label = document.getElementById("cashierUserBtnLabel");
+        const results = document.getElementById("cashierUserResults");
+        const search = document.getElementById("cashierUserSearch");
+        if (!form || !select || !btn || !label || !results || !search) return;
+
+        const options = Array.from(select.options).map((o) => ({ value: o.value, text: o.text }));
+
+        function setSelectedFromSelect() {
+          const opt = select.options[select.selectedIndex];
+          label.textContent = opt ? opt.text : "Все пользователи";
+        }
+
+        function render(items) {
+          results.innerHTML = "";
+          for (const it of items) {
+            const name = it.text || "User";
+            const initial = (name || "?").slice(0, 1).toUpperCase();
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "list-group-item list-group-item-action mc-picker-item";
+            b.innerHTML =
+              '<span class="mc-picker-avatar" aria-hidden="true">' +
+              initial +
+              "</span>" +
+              '<span class="mc-picker-main">' +
+              '<span class="mc-picker-title"></span>' +
+              '<span class="mc-picker-subtitle"></span>' +
+              "</span>";
+            b.querySelector(".mc-picker-title").textContent = name;
+            b.querySelector(".mc-picker-subtitle").textContent = it.value ? "Фильтр по пользователю" : "Показать всех";
+            b.addEventListener("click", () => {
+              select.value = it.value;
+              setSelectedFromSelect();
+              bootstrap.Dropdown.getOrCreateInstance(btn).hide();
+              form.submit();
+            });
+            results.appendChild(b);
+          }
+        }
+
+        function filter(q) {
+          const qq = (q || "").trim().toLowerCase();
+          if (!qq) return render(options);
+          render(options.filter((o) => o.text.toLowerCase().includes(qq)));
+        }
+
+        render(options);
+        setSelectedFromSelect();
+        search.addEventListener("input", () => filter(search.value));
+      })();
+    </script>
+  {% endif %}
 {% endblock %}
 
 

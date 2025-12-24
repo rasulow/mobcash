@@ -37,6 +37,18 @@ ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(","
     "localhost",
 ]
 
+# CSRF / proxy
+# If you deploy behind Nginx (reverse proxy), enable secure detection via X-Forwarded-Proto.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = os.environ.get("DJANGO_USE_X_FORWARDED_HOST", "0") == "1"
+
+# Example: DJANGO_CSRF_TRUSTED_ORIGINS=http://178.253.42.163,https://yourdomain.com
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+    if o.strip()
+]
+
 
 # Application definition
 

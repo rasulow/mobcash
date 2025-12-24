@@ -104,7 +104,11 @@ def fetch_yildiztop_users_by_referral_token(
     return result
 
 
-def post_yildiztop_update_balance(referral_token: str, balance: Decimal, timeout_s: int = 8) -> None:
+def post_yildiztop_update_balance(
+    referral_token: str,
+    balance: Decimal,
+    timeout_s: int = 8,
+) -> None:
     """
     POST https://yildiztop.com/api/users/update-balance
     Body: {"referral_token": "...", "balance": 123.45}

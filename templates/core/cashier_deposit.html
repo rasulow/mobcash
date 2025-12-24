@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Пополнение кассиром · MobCash{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-7">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h4 mb-0">Пополнение кассиром</h1>
+        <a class="btn btn-outline-secondary btn-sm" href="{% url 'dashboard' %}">Назад</a>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body p-4">
+          <div class="text-muted mb-3">
+            Ваш баланс: <span class="fw-semibold">{{ wallet.balance }} {{ wallet.currency }}</span>
+          </div>
+
+          <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label">Пользователь</label>
+              <div class="d-none">
+                {{ form.to_user }}
+              </div>
+              <noscript>
+                <div class="mt-2">
+                  {{ form.to_user }}
+                </div>
+              </noscript>
+
+              <div class="dropdown mt-2">
+                <button
+                  id="cashierToUserBtn"
+                  class="form-control text-start mc-picker-btn"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  <span id="cashierToUserLabel">Выберите пользователя…</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end shadow-sm p-2 mc-picker-menu" style="width: min(520px, 92vw);">
+                  <div class="px-2 pb-2">
+                    <input
+                      id="cashierToUserSearch"
+                      class="form-control"
+                      type="search"
+                      placeholder="Поиск пользователя…"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="mc-picker-results list-group list-group-flush" id="cashierToUserResults"></div>
+                </div>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Сумма</label>
+              {{ form.amount }}
+            </div>
+            <div class="d-grid d-sm-flex gap-2">
+              <button class="btn btn-primary" type="submit">Пополнить</button>
+              <a class="btn btn-outline-secondary" href="{% url 'dashboard' %}">Отмена</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const select = document.getElementById("id_to_user");
+      const btn = document.getElementById("cashierToUserBtn");
+      const label = document.getElementById("cashierToUserLabel");
+      const results = document.getElementById("cashierToUserResults");
+      const search = document.getElementById("cashierToUserSearch");
+      if (!select || !btn || !label || !results || !search) return;
+
+      const options = Array.from(select.options).map((o) => ({ value: o.value, text: o.text }));
+
+      function setSelectedFromSelect() {
+        const opt = select.options[select.selectedIndex];
+        label.textContent = opt ? opt.text : "Выберите пользователя…";
+      }
+
+      function render(items) {
+        results.innerHTML = "";
+        for (const it of items) {
+          const name = it.text || "User";
+          const initial = (name || "?").slice(0, 1).toUpperCase();
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "list-group-item list-group-item-action mc-picker-item";
+          b.innerHTML =
+            '<span class="mc-picker-avatar" aria-hidden="true">' +
+            initial +
+            "</span>" +
+            '<span class="mc-picker-main">' +
+            '<span class="mc-picker-title"></span>' +
+            '<span class="mc-picker-subtitle"></span>' +
+            "</span>";
+          b.querySelector(".mc-picker-title").textContent = name;
+          b.querySelector(".mc-picker-subtitle").textContent = "Пополнить этого пользователя";
+          b.addEventListener("click", () => {
+            select.value = it.value;
+            setSelectedFromSelect();
+            bootstrap.Dropdown.getOrCreateInstance(btn).hide();
+          });
+          results.appendChild(b);
+        }
+      }
+
+      function filter(q) {
+        const qq = (q || "").trim().toLowerCase();
+        if (!qq) return render(options);
+        render(options.filter((o) => o.text.toLowerCase().includes(qq)));
+      }
+
+      render(options);
+      setSelectedFromSelect();
+      search.addEventListener("input", () => filter(search.value));
+    })();
+  </script>
+{% endblock %}
+
+

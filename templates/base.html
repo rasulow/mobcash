@@ -33,7 +33,7 @@
               </button>
               <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                 <li>
-                  <h6 class="dropdown-header">Signed in</h6>
+                  <h6 class="dropdown-header">Вы вошли</h6>
                 </li>
                 <li>
                   <span class="dropdown-item-text text-muted small">{{ request.user.get_username }}</span>
@@ -41,23 +41,23 @@
                 <li><hr class="dropdown-divider" /></li>
 
                 <li class="d-lg-none">
-                  <a class="dropdown-item" href="{% url 'dashboard' %}">Dashboard</a>
+                  <a class="dropdown-item" href="{% url 'dashboard' %}">Панель</a>
                 </li>
                 <li class="d-lg-none">
-                  <a class="dropdown-item" href="{% url 'transaction_create' %}">New transaction</a>
+                  <a class="dropdown-item" href="{% url 'transaction_create' %}">Новая операция</a>
                 </li>
                 <li class="d-lg-none"><hr class="dropdown-divider" /></li>
 
                 <li>
                   <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
-                    <button class="dropdown-item text-danger" type="submit">Logout</button>
+                    <button class="dropdown-item text-danger" type="submit">Выйти</button>
                   </form>
                 </li>
               </ul>
             </div>
           {% else %}
-            <a class="btn btn-sm btn-outline-light" href="{% url 'login' %}">Login</a>
+            <a class="btn btn-sm btn-outline-light" href="{% url 'login' %}">Войти</a>
           {% endif %}
         </div>
       </div>

@@ -22,6 +22,10 @@ class Transaction(models.Model):
         SYNCED = "synced", "Synced"
         FAILED = "failed", "Failed"
 
+    class Type(models.TextChoices):
+        DEPOSIT = "deposit", "Deposit"
+        WITHDRAW = "withdraw", "Withdraw"
+
     wallet = models.ForeignKey(
         Wallet,
         on_delete=models.CASCADE,
@@ -43,6 +47,11 @@ class Transaction(models.Model):
         default=ExternalSyncStatus.PENDING,
     )
     external_sync_error = models.TextField(blank=True, default="")
+    type = models.CharField(
+        max_length=16,
+        choices=Type.choices,
+        default=Type.WITHDRAW,
+    )
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     note = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -53,6 +62,30 @@ class Transaction(models.Model):
 
     def __str__(self) -> str:
         who = self.external_user_name or self.wallet.user
-        return f"{who} {self.amount} @ {self.created_at:%Y-%m-%d %H:%M}"
+        return f"{who} {self.type} {self.amount} @ {self.created_at:%Y-%m-%d %H:%M}"
 
-# Create your models here.
+class WalletTransfer(models.Model):
+    """
+    Internal transfer between local wallets (no external API).
+    Used by main_cashier to deposit to other users using their own wallet balance.
+    """
+
+    from_wallet = models.ForeignKey(
+        Wallet,
+        on_delete=models.PROTECT,
+        related_name="outgoing_transfers",
+    )
+    to_wallet = models.ForeignKey(
+        Wallet,
+        on_delete=models.PROTECT,
+        related_name="incoming_transfers",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.from_wallet.user} -> {self.to_wallet.user}: {self.amount}"
+

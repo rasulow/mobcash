@@ -1,6 +1,10 @@
 from django import forms
 
-from .models import Transaction
+from django.contrib.auth import get_user_model
+
+from .models import Transaction, Wallet
+
+User = get_user_model()
 
 
 class TransactionCreateForm(forms.ModelForm):
@@ -13,8 +17,9 @@ class TransactionCreateForm(forms.ModelForm):
 
     class Meta:
         model = Transaction
-        fields = ["amount", "note"]
+        fields = ["type", "amount", "note"]
         widgets = {
+            "type": forms.Select(attrs={"class": "form-select"}),
             "amount": forms.NumberInput(
                 attrs={"class": "form-control", "step": "0.01", "min": "0"}
             ),
@@ -28,5 +33,19 @@ class TransactionCreateForm(forms.ModelForm):
         if not choices:
             self.fields["client_id"].required = False
             self.fields["client_id"].widget.attrs["disabled"] = True
+
+
+class CashierDepositForm(forms.Form):
+    to_user = forms.ModelChoiceField(
+        queryset=User.objects.all().order_by("username"),
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="User",
+    )
+    amount = forms.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=0.01,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0.01"}),
+    )
 
 

@@ -7,14 +7,15 @@ from django.http import JsonResponse
 from django.db import transaction as db_transaction
 from django.db.models import F
 
-from .forms import TransactionCreateForm
+from .forms import CashierDepositForm, TransactionCreateForm
 from .external_api import (
     ExternalApiError,
     fetch_yildiztop_users_by_referral_token,
     fetch_yildiztop_users,
     post_yildiztop_update_balance,
 )
-from .models import Transaction, Wallet
+from .models import Transaction, Wallet, WalletTransfer
+from .permissions import is_main_cashier, main_cashier_required
 
 
 def home(request):
@@ -26,12 +27,71 @@ def home(request):
 @login_required
 def dashboard(request):
     wallet, _ = Wallet.objects.get_or_create(user=request.user)
-    transactions = wallet.transactions.all()[:10]
+    cashier = is_main_cashier(request.user)
+    if cashier:
+        user_id = (request.GET.get("user") or "").strip()
+        qs = Transaction.objects.select_related("wallet", "wallet__user").all()
+        if user_id:
+            qs = qs.filter(wallet__user_id=user_id)
+        transactions = qs[:25]
+        user_choices = (
+            Transaction.objects.select_related("wallet__user")
+            .values("wallet__user_id", "wallet__user__username")
+            .distinct()
+            .order_by("wallet__user__username")
+        )
+    else:
+        transactions = wallet.transactions.all()[:10]
+        user_id = ""
+        user_choices = []
     return render(
         request,
         "core/dashboard.html",
-        {"wallet": wallet, "transactions": transactions},
+        {
+            "wallet": wallet,
+            "transactions": transactions,
+            "is_cashier": cashier,
+            "filter_user_id": user_id,
+            "user_choices": user_choices,
+        },
     )
+
+
+@main_cashier_required
+def cashier_deposit(request):
+    from_wallet, _ = Wallet.objects.get_or_create(user=request.user)
+    if request.method == "POST":
+        form = CashierDepositForm(request.POST)
+        if form.is_valid():
+            to_user = form.cleaned_data["to_user"]
+            amount = form.cleaned_data["amount"]
+            to_wallet, _ = Wallet.objects.get_or_create(user=to_user)
+
+            with db_transaction.atomic():
+                from_wallet = Wallet.objects.select_for_update().get(pk=from_wallet.pk)
+                to_wallet = Wallet.objects.select_for_update().get(pk=to_wallet.pk)
+
+                if from_wallet.balance < amount:
+                    messages.warning(
+                        request,
+                        f"Not enough balance: you have {from_wallet.balance}, need {amount}.",
+                    )
+                    return redirect("cashier_deposit")
+
+                Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") - amount)
+                Wallet.objects.filter(pk=to_wallet.pk).update(balance=F("balance") + amount)
+                WalletTransfer.objects.create(
+                    from_wallet=from_wallet,
+                    to_wallet=to_wallet,
+                    amount=amount,
+                )
+
+            messages.success(request, "Deposit completed.")
+            return redirect("dashboard")
+    else:
+        form = CashierDepositForm()
+
+    return render(request, "core/cashier_deposit.html", {"form": form, "wallet": from_wallet})
 
 
 @login_required
@@ -62,7 +122,8 @@ def transaction_create(request):
 
             # Don't store a transaction if there isn't enough money.
             amount = form.cleaned_data["amount"]
-            if wallet.balance is None or Decimal(wallet.balance) < amount:
+            tx_type = form.cleaned_data["type"]
+            if tx_type == Transaction.Type.DEPOSIT and (wallet.balance is None or Decimal(wallet.balance) < amount):
                 messages.warning(
                     request,
                     f"Not sending: amount {amount} is greater than your wallet balance {wallet.balance}.",
@@ -81,33 +142,28 @@ def transaction_create(request):
                 tx.external_sync_error = ""
 
                 token = tx.external_referral_token
-                users = fetch_yildiztop_users_by_referral_token(token)
-                u = users[0] if users else None
-                current = u.balance if (u and u.balance is not None) else Decimal("0")
-                tx.external_balance_before = current
-                new_balance = current + tx.amount
-                post_yildiztop_update_balance(token, new_balance)
+                signed_amount = tx.amount if tx.type == Transaction.Type.DEPOSIT else -tx.amount
+                post_yildiztop_update_balance(token, signed_amount)
 
-                tx.external_balance_after = new_balance
                 tx.external_sync_status = Transaction.ExternalSyncStatus.SYNCED
                 tx.external_sync_error = ""
                 tx.save()
 
-                # Decrease our wallet balance only after external update succeeded.
-                with db_transaction.atomic():
-                    updated = (
-                        Wallet.objects.filter(pk=wallet.pk, balance__gte=tx.amount).update(
+                # Update our wallet balance only after external update succeeded.
+                # Requirement: WITHDRAW must NOT decrease own balance.
+                if tx.type == Transaction.Type.DEPOSIT:
+                    with db_transaction.atomic():
+                        updated = Wallet.objects.filter(pk=wallet.pk, balance__gte=tx.amount).update(
                             balance=F("balance") - tx.amount
                         )
-                    )
-                    if updated != 1:
-                        messages.error(
-                            request,
-                            "Wallet balance changed. External update succeeded but local wallet did not deduct.",
-                        )
-                    else:
-                        # refresh local object for subsequent page render
-                        wallet.refresh_from_db(fields=["balance"])
+                        if updated != 1:
+                            messages.error(
+                                request,
+                                "Wallet balance changed. External update succeeded but local wallet did not update.",
+                            )
+                        else:
+                            # refresh local object for subsequent page render
+                            wallet.refresh_from_db(fields=["balance"])
                 messages.success(request, "Sent successfully.")
             except ExternalApiError as e:
                 messages.error(request, "External service error. Transaction was not sent.")
