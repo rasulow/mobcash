@@ -85,7 +85,7 @@
                 {% for tx in transactions %}
                   <tr>
                     <td class="text-muted">{{ tx.id }}</td>
-                    <td class="text-capitalize">{{ tx.type }}</td>
+                    <td>{{ tx.get_type_display }}</td>
                     {% if is_cashier %}<td class="text-muted">{{ tx.wallet.user.username }}</td>{% endif %}
                     <td class="text-truncate" style="max-width: 220px;">
                       {% if tx.external_referral_token %}

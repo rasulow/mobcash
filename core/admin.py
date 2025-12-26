@@ -78,7 +78,7 @@ class TransactionAdmin(ModelAdmin):
     list_display = (
         "id",
         "wallet_user",
-        "type",
+        "type_display",
         "external_referral_token",
         "external_user_name",
         "amount",
@@ -99,6 +99,10 @@ class TransactionAdmin(ModelAdmin):
     @admin.display(description="Пользователь", ordering="wallet__user__username")
     def wallet_user(self, obj: Transaction) -> str:
         return obj.wallet.user.get_username()
+
+    @admin.display(description="Тип", ordering="type")
+    def type_display(self, obj: Transaction) -> str:
+        return obj.get_type_display()
 
     @admin.display(description="Дата", ordering="created_at")
     def created_at_fmt(self, obj: Transaction) -> str:

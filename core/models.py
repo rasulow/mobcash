@@ -23,8 +23,8 @@ class Transaction(models.Model):
         FAILED = "failed", "Failed"
 
     class Type(models.TextChoices):
-        DEPOSIT = "deposit", "Deposit"
-        WITHDRAW = "withdraw", "Withdraw"
+        DEPOSIT = "deposit", "Депозит"
+        WITHDRAW = "withdraw", "Вывод"
 
     wallet = models.ForeignKey(
         Wallet,
