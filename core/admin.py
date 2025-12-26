@@ -96,11 +96,11 @@ class TransactionAdmin(ModelAdmin):
         "external_referral_token",
     )
 
-    @admin.display(description="User", ordering="wallet__user__username")
+    @admin.display(description="Пользователь", ordering="wallet__user__username")
     def wallet_user(self, obj: Transaction) -> str:
         return obj.wallet.user.get_username()
 
-    @admin.display(description="Created", ordering="created_at")
+    @admin.display(description="Дата", ordering="created_at")
     def created_at_fmt(self, obj: Transaction) -> str:
         # dd.mm.YYYY hh:mm:ss
         return obj.created_at.strftime("%d.%m.%Y %H:%M:%S")

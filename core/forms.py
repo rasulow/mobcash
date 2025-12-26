@@ -12,7 +12,7 @@ class TransactionCreateForm(forms.ModelForm):
         choices=[],
         required=True,
         widget=forms.Select(attrs={"class": "form-select"}),
-        label="Client",
+        label="Клиент",
     )
 
     class Meta:
@@ -28,6 +28,8 @@ class TransactionCreateForm(forms.ModelForm):
 
     def __init__(self, *args, client_choices: list[tuple[str, str]] | None = None, **kwargs):
         super().__init__(*args, **kwargs)
+        # Default selection for new transactions
+        self.fields["type"].initial = Transaction.Type.DEPOSIT
         choices = client_choices or []
         self.fields["client_id"].choices = choices
         if not choices:
@@ -39,13 +41,14 @@ class CashierDepositForm(forms.Form):
     to_user = forms.ModelChoiceField(
         queryset=User.objects.all().order_by("username"),
         widget=forms.Select(attrs={"class": "form-select"}),
-        label="User",
+        label="Пользователь",
     )
     amount = forms.DecimalField(
         max_digits=12,
         decimal_places=2,
         min_value=0.01,
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01", "min": "0.01"}),
+        label="Сумма",
     )
 
 

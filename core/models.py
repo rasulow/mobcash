@@ -9,7 +9,7 @@ class Wallet(models.Model):
         on_delete=models.CASCADE,
         related_name="wallet",
     )
-    currency = models.CharField(max_length=8, default="USD")
+    currency = models.CharField(max_length=8, default="TMT")
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     def __str__(self) -> str:

@@ -72,10 +72,7 @@ def cashier_deposit(request):
                 to_wallet = Wallet.objects.select_for_update().get(pk=to_wallet.pk)
 
                 if from_wallet.balance < amount:
-                    messages.warning(
-                        request,
-                        f"Not enough balance: you have {from_wallet.balance}, need {amount}.",
-                    )
+                    messages.warning(request, f"Недостаточно средств: у вас {from_wallet.balance}, нужно {amount}.")
                     return redirect("cashier_deposit")
 
                 Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") - amount)
@@ -86,7 +83,7 @@ def cashier_deposit(request):
                     amount=amount,
                 )
 
-            messages.success(request, "Deposit completed.")
+            messages.success(request, "Пополнение выполнено.")
             return redirect("dashboard")
     else:
         form = CashierDepositForm()
@@ -106,10 +103,7 @@ def transaction_create(request):
     client_choices = [(str(u.id), u.label) for u in external_users]
 
     if not client_choices:
-        messages.warning(
-            request,
-            "Client list is currently unavailable (external API). Please try again later.",
-        )
+        messages.warning(request, "Список клиентов временно недоступен (внешний API). Попробуйте позже.")
 
     if request.method == "POST":
         form = TransactionCreateForm(request.POST, client_choices=client_choices)
@@ -117,17 +111,14 @@ def transaction_create(request):
             client_id = form.cleaned_data["client_id"]
             ext_user = user_by_id.get(str(client_id))
             if not ext_user:
-                messages.error(request, "Selected client is invalid. Please try again.")
+                messages.error(request, "Выбранный клиент некорректен. Попробуйте снова.")
                 return redirect("transaction_create")
 
             # Don't store a transaction if there isn't enough money.
             amount = form.cleaned_data["amount"]
             tx_type = form.cleaned_data["type"]
             if tx_type == Transaction.Type.DEPOSIT and (wallet.balance is None or Decimal(wallet.balance) < amount):
-                messages.warning(
-                    request,
-                    f"Not sending: amount {amount} is greater than your wallet balance {wallet.balance}.",
-                )
+                messages.warning(request, f"Не отправлено: сумма {amount} больше вашего баланса {wallet.balance}.")
                 return redirect("dashboard")
 
             # Try external update-balance right away.
@@ -157,16 +148,13 @@ def transaction_create(request):
                             balance=F("balance") - tx.amount
                         )
                         if updated != 1:
-                            messages.error(
-                                request,
-                                "Wallet balance changed. External update succeeded but local wallet did not update.",
-                            )
+                            messages.error(request, "Баланс изменился. Внешний запрос успешен, но локальный баланс не обновился.")
                         else:
                             # refresh local object for subsequent page render
                             wallet.refresh_from_db(fields=["balance"])
-                messages.success(request, "Sent successfully.")
+                messages.success(request, "Успешно отправлено.")
             except ExternalApiError as e:
-                messages.error(request, "External service error. Transaction was not sent.")
+                messages.error(request, "Ошибка внешнего сервиса. Операция не отправлена.")
 
             return redirect("dashboard")
     else:
