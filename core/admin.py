@@ -9,6 +9,11 @@ from .models import Transaction, Wallet, WalletTransfer
 
 User = get_user_model()
 
+# Admin site headers (Russian)
+admin.site.site_header = "Администрирование MobCash"
+admin.site.site_title = "MobCash — админка"
+admin.site.index_title = "Панель администратора"
+
 
 # Re-register User/Group with Unfold ModelAdmin
 try:
