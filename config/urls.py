@@ -37,6 +37,7 @@ urlpatterns = [
     path("", include("core.urls")),
     path("api/", include("core.api.urls")),
     path("api/auth/", include("core.api.auth_urls")),
+    path("api/cashier/", include("core.api.cashier_urls")),
     path("api/admin/", include("core.api.admin_urls")),
     path(
         "api/docs/",
