@@ -17,10 +17,32 @@ Including another URLconf
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
+from rest_framework import permissions
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="MobCash API",
+        default_version="v1",
+        description="MobCash API (DRF)",
+    ),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+    authentication_classes=(),
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("", include("core.urls")),
+    path("api/", include("core.api.urls")),
+    path("api/auth/", include("core.api.auth_urls")),
+    path(
+        "api/docs/",
+        schema_view.with_ui("swagger", cache_timeout=0),
+        name="schema-swagger-ui",
+    ),
+    path("api/redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
     path("accounts/logout/", auth_views.LogoutView.as_view(next_page="login"), name="logout"),
     path("accounts/", include("django.contrib.auth.urls")),
 ]
