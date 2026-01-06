@@ -27,7 +27,7 @@ class WalletViewSet(viewsets.GenericViewSet):
     serializer_class = WalletSerializer
 
     def list(self, request, *args, **kwargs):
-        if not request.user.groups.filter(name="main_cashier").exists():
+        if not (request.user.is_superuser or request.user.groups.filter(name="main_cashier").exists()):
             return Response({"detail": "Недостаточно прав."}, status=status.HTTP_403_FORBIDDEN)
         qs = self.get_queryset().order_by("user__username")
         return Response(WalletSerializer(qs, many=True).data)
@@ -44,8 +44,8 @@ class TransactionViewSet(viewsets.GenericViewSet):
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
-        is_cashier = request.user.groups.filter(name="main_cashier").exists()
-        if not is_cashier:
+        elevated = request.user.is_superuser or request.user.groups.filter(name="main_cashier").exists()
+        if not elevated:
             qs = qs.filter(wallet__user=request.user)
         else:
             user_id = request.query_params.get("user_id")
@@ -58,8 +58,8 @@ class TransactionViewSet(viewsets.GenericViewSet):
         obj = self.get_queryset().filter(pk=pk).first()
         if not obj:
             return Response({"detail": "Не найдено."}, status=status.HTTP_404_NOT_FOUND)
-        is_cashier = request.user.groups.filter(name="main_cashier").exists()
-        if not is_cashier and obj.wallet.user_id != request.user.id:
+        elevated = request.user.is_superuser or request.user.groups.filter(name="main_cashier").exists()
+        if not elevated and obj.wallet.user_id != request.user.id:
             return Response({"detail": "Недостаточно прав."}, status=status.HTTP_403_FORBIDDEN)
         return Response(TransactionSerializer(obj).data)
 
