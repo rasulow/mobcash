@@ -4,6 +4,7 @@ from rest_framework import mixins, viewsets
 
 from core.models import Transaction, Wallet, WalletTransfer
 
+from .cashier_serializers import CashierAccountCreateSerializer
 from .admin_serializers import (
     AdminGroupSerializer,
     AdminTransactionSerializer,
@@ -11,15 +12,35 @@ from .admin_serializers import (
     AdminWalletSerializer,
     AdminWalletTransferSerializer,
 )
-from .permissions import IsSuperAdmin
+from .permissions import IsSuperAdmin, IsSuperAdminOrMainCashier
 
 User = get_user_model()
 
 
 class AdminUserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all().order_by("id")
+    queryset = User.objects.select_related("wallet").prefetch_related("groups").all().order_by("id")
     serializer_class = AdminUserSerializer
     permission_classes = [IsSuperAdmin]
+
+    def get_permissions(self):
+        """
+        superadmin: full access
+        main_cashier: can list/retrieve users and create cashier accounts only
+        """
+        if getattr(self.request, "user", None) and self.request.user.is_superuser:
+            return [IsSuperAdmin()]
+
+        if self.action in ["list", "retrieve", "create"]:
+            return [IsSuperAdminOrMainCashier()]
+
+        # update / partial_update / destroy remain superadmin-only
+        return [IsSuperAdmin()]
+
+    def get_serializer_class(self):
+        # main_cashier should only be able to create cashier accounts (no group/flags control).
+        if self.action == "create" and not self.request.user.is_superuser:
+            return CashierAccountCreateSerializer
+        return AdminUserSerializer
 
 
 class AdminGroupViewSet(viewsets.ModelViewSet):

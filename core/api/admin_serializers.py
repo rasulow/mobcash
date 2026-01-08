@@ -10,6 +10,7 @@ User = get_user_model()
 class AdminUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, allow_blank=False)
     groups = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), many=True, required=False)
+    wallet = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -23,8 +24,17 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "is_staff",
             "is_superuser",
             "groups",
+            "wallet",
             "password",
         ]
+
+    def get_wallet(self, obj):
+        # Reverse one-to-one relation: may not exist for some users.
+        try:
+            wallet = obj.wallet
+        except Wallet.DoesNotExist:
+            return None
+        return AdminWalletSerializer(wallet).data
 
     def create(self, validated_data):
         password = validated_data.pop("password", None)
