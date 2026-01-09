@@ -17,12 +17,12 @@ from .admin_serializers import (
     AdminTransactionSerializer,
     AdminUserSerializer,
     AdminWalletSerializer,
+    AdminWalletTransferCreateSerializer,
     AdminWalletTransferSerializer,
     WalletCreateSerializer,
     WalletSetBalanceSerializer,
 )
 from .permissions import IsSuperAdmin, IsSuperAdminOrMainCashier
-from .serializers import WalletTransferCreateSerializer
 
 User = get_user_model()
 
@@ -166,7 +166,7 @@ class AdminWalletTransferViewSet(
         """
         Superadmin only: transfer from superadmin wallet to main_cashier wallet.
         """
-        ser = WalletTransferCreateSerializer(data=request.data)
+        ser = AdminWalletTransferCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         to_user_id = ser.validated_data["to_user_id"]
         amount: Decimal = ser.validated_data["amount"]

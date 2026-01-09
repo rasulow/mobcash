@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from rest_framework import serializers
@@ -113,6 +115,11 @@ class AdminTransactionSerializer(serializers.ModelSerializer):
             "external_sync_error",
             "created_at",
         ]
+
+
+class AdminWalletTransferCreateSerializer(serializers.Serializer):
+    to_user_id = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
 
 
 class AdminWalletTransferSerializer(serializers.ModelSerializer):
