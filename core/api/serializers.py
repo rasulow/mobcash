@@ -178,3 +178,42 @@ class SPMSessionResponseSerializer(serializers.Serializer):
     )
 
 
+class SPMRegisterUserSerializer(serializers.Serializer):
+    """Serializer for user registration request"""
+    names = serializers.CharField(
+        max_length=255,
+        help_text="User's full name"
+    )
+    user_name = serializers.CharField(
+        max_length=255,
+        help_text="Unique username"
+    )
+    email = serializers.EmailField(
+        help_text="User's email address"
+    )
+    country_code = serializers.CharField(
+        max_length=10,
+        help_text="Country code (e.g., '91', 'TM')"
+    )
+    phone = serializers.IntegerField(
+        help_text="Phone number as integer"
+    )
+    password = serializers.CharField(
+        max_length=255,
+        help_text="User password (min 8 chars, must have capital & small letter, number, symbol)"
+    )
+
+
+class SPMRegisterUserResponseSerializer(serializers.Serializer):
+    """Serializer for user registration response"""
+    user_id = serializers.IntegerField(
+        help_text="Registered user ID"
+    )
+    user_name = serializers.CharField(
+        help_text="Username"
+    )
+    name = serializers.CharField(
+        help_text="User's full name"
+    )
+
+

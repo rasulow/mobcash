@@ -16,6 +16,8 @@ from .serializers import (
     SPMDepositStatusResponseSerializer,
     SPMDepositStatusSerializer,
     SPMGetUserByPhoneSerializer,
+    SPMRegisterUserResponseSerializer,
+    SPMRegisterUserSerializer,
     SPMSessionResponseSerializer,
     SPMSessionSerializer,
     SPMTransactionResponseSerializer,
@@ -544,6 +546,89 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                         "message": f"Internal error: {str(e)}",
                         "errorCode": "INTERNAL_ERROR"
                     }
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=["post"], url_path="register")
+    def register_user(self, request):
+        """
+        Register a new user in SPM system.
+        
+        Request body:
+        {
+            "names": "John",
+            "user_name": "John1234569",
+            "email": "john@at.com",
+            "country_code": "91",
+            "phone": 99900000,
+            "password": "PlayerPassword@123"
+        }
+        
+        Response:
+        {
+            "error": null,
+            "data": {
+                "user_id": 1,
+                "user_name": "John1234569",
+                "name": "John"
+            },
+            "statusCode": 200
+        }
+        """
+        serializer = SPMRegisterUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        names = serializer.validated_data["names"]
+        user_name = serializer.validated_data["user_name"]
+        email = serializer.validated_data["email"]
+        country_code = serializer.validated_data["country_code"]
+        phone = serializer.validated_data["phone"]
+        password = serializer.validated_data["password"]
+        
+        try:
+            # Call SPM API
+            spm_client = get_spm_client()
+            user_data = spm_client.register_user(
+                names=names,
+                user_name=user_name,
+                email=email,
+                country_code=country_code,
+                phone=phone,
+                password=password
+            )
+            
+            # Return success response in SPM format
+            return Response(
+                {
+                    "error": None,
+                    "data": SPMRegisterUserResponseSerializer(user_data).data,
+                    "statusCode": 200
+                },
+                status=status.HTTP_200_OK
+            )
+            
+        except SPMApiError as e:
+            return Response(
+                {
+                    "error": {
+                        "message": str(e),
+                        "errorCode": e.error_code
+                    },
+                    "data": None,
+                    "statusCode": e.status_code
+                },
+                status=e.status_code
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": {
+                        "message": f"Internal error: {str(e)}",
+                        "errorCode": "INTERNAL_ERROR"
+                    },
+                    "data": None,
+                    "statusCode": 500
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

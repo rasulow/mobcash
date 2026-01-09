@@ -381,6 +381,61 @@ class SPMClient:
             "is_active": data.get("isActive", False),
         }
     
+    def register_user(
+        self,
+        names: str,
+        user_name: str,
+        email: str,
+        country_code: str,
+        phone: int,
+        password: str
+    ) -> dict:
+        """
+        Register a new user in SPM system.
+        
+        Args:
+            names: User's full name
+            user_name: Unique username
+            email: User's email address
+            country_code: Country code (e.g., '91', 'TM')
+            phone: Phone number as integer
+            password: User password (min 8 chars, must have capital & small letter, number, symbol)
+            
+        Returns:
+            Dictionary with user details: {userId, userName, name}
+            
+        Raises:
+            SPMApiError: If registration fails
+        """
+        payload = {
+            "names": names,
+            "userName": user_name,
+            "email": email,
+            "countryCode": country_code,
+            "phone": phone,
+            "password": password,
+        }
+        
+        response = self._make_request("/user/register", payload)
+        
+        # Check for errors
+        if response.get("error"):
+            error = response["error"]
+            raise SPMApiError(
+                error.get("message", "User registration failed"),
+                error.get("errorCode", "REGISTRATION_ERROR"),
+                response.get("statusCode", 400)
+            )
+        
+        # Extract user data
+        data = response.get("data", {})
+        
+        return {
+            "user_id": data.get("userId"),
+            "user_name": data.get("userName"),
+            "name": data.get("name"),
+        }
+    
     def manage_session(self, user_id: str, action: str) -> str | None:
         """
         Create or destroy a user session.
