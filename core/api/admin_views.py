@@ -20,7 +20,7 @@ from .admin_serializers import (
     AdminWalletTransferCreateSerializer,
     AdminWalletTransferSerializer,
     WalletCreateSerializer,
-    WalletSetBalanceSerializer,
+    WalletIncreaseBalanceSerializer,
 )
 from .permissions import IsSuperAdmin, IsSuperAdminOrMainCashier
 
@@ -126,19 +126,19 @@ class AdminWalletViewSet(viewsets.ModelViewSet):
         wallet, _ = Wallet.objects.get_or_create(user=request.user)
         return Response(AdminWalletSerializer(wallet).data)
 
-    @action(detail=False, methods=["post"], url_path="me/set-balance")
-    def set_my_balance(self, request):
+    @action(detail=False, methods=["post"], url_path="me/increase-balance")
+    def increase_my_balance(self, request):
         """
-        Superadmin only: set own wallet balance directly.
+        Superadmin only: increase own wallet balance by specified amount.
         """
-        ser = WalletSetBalanceSerializer(data=request.data)
+        ser = WalletIncreaseBalanceSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        balance: Decimal = ser.validated_data["balance"]
+        amount: Decimal = ser.validated_data["amount"]
 
         wallet, _ = Wallet.objects.get_or_create(user=request.user)
         with db_transaction.atomic():
             wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
-            Wallet.objects.filter(pk=wallet.pk).update(balance=balance)
+            Wallet.objects.filter(pk=wallet.pk).update(balance=F("balance") + amount)
             wallet.refresh_from_db(fields=["balance", "currency"])
 
         return Response(AdminWalletSerializer(wallet).data, status=status.HTTP_200_OK)
@@ -169,21 +169,29 @@ class AdminWalletTransferViewSet(
 
     def create(self, request, *args, **kwargs):
         """
-        Superadmin only: transfer from superadmin wallet to main_cashier wallet.
+        Superadmin only: deposit to or withdraw from main_cashier/cashier wallet.
+        - deposit: decreases superadmin balance, increases target balance
+        - withdraw: increases superadmin balance, decreases target balance
         """
         ser = AdminWalletTransferCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         to_user_id = ser.validated_data["to_user_id"]
         amount: Decimal = ser.validated_data["amount"]
+        transaction_type = ser.validated_data["transaction_type"]
 
         from_wallet, _ = Wallet.objects.get_or_create(user=request.user)
 
         to_user = User.objects.filter(pk=to_user_id).first()
         if not to_user:
             return Response({"detail": "Пользователь не найден."}, status=status.HTTP_404_NOT_FOUND)
-        if not to_user.groups.filter(name="main_cashier").exists():
+        
+        # Allow transfers to main_cashier or cashier
+        is_main_cashier = to_user.groups.filter(name="main_cashier").exists()
+        is_cashier = to_user.groups.filter(name="cashier").exists()
+        
+        if not (is_main_cashier or is_cashier):
             return Response(
-                {"detail": "Можно переводить только пользователям с ролью main_cashier."},
+                {"detail": "Можно переводить только пользователям с ролью main_cashier или cashier."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if to_user.is_superuser:
@@ -199,13 +207,26 @@ class AdminWalletTransferViewSet(
         with db_transaction.atomic():
             from_wallet = Wallet.objects.select_for_update().get(pk=from_wallet.pk)
             to_wallet = Wallet.objects.select_for_update().get(pk=to_wallet.pk)
-            if from_wallet.balance < amount:
-                return Response(
-                    {"detail": f"Недостаточно средств: баланс {from_wallet.balance}, нужно {amount}."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") - amount)
-            Wallet.objects.filter(pk=to_wallet.pk).update(balance=F("balance") + amount)
+            
+            if transaction_type == "deposit":
+                # Deposit: superadmin sends money to target user
+                if from_wallet.balance < amount:
+                    return Response(
+                        {"detail": f"Недостаточно средств: баланс {from_wallet.balance}, нужно {amount}."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") - amount)
+                Wallet.objects.filter(pk=to_wallet.pk).update(balance=F("balance") + amount)
+            else:  # withdraw
+                # Withdraw: superadmin takes money from target user
+                if to_wallet.balance < amount:
+                    return Response(
+                        {"detail": f"Недостаточно средств у пользователя: баланс {to_wallet.balance}, нужно {amount}."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") + amount)
+                Wallet.objects.filter(pk=to_wallet.pk).update(balance=F("balance") - amount)
+            
             wt = WalletTransfer.objects.create(from_wallet=from_wallet, to_wallet=to_wallet, amount=amount)
 
         return Response(AdminWalletTransferSerializer(wt).data, status=status.HTTP_201_CREATED)

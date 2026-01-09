@@ -64,8 +64,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
         return instance
 
 
-class WalletSetBalanceSerializer(serializers.Serializer):
-    balance = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0)
+class WalletIncreaseBalanceSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
 
 
 class AdminGroupSerializer(serializers.ModelSerializer):
@@ -120,6 +120,7 @@ class AdminTransactionSerializer(serializers.ModelSerializer):
 class AdminWalletTransferCreateSerializer(serializers.Serializer):
     to_user_id = serializers.IntegerField()
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
+    transaction_type = serializers.ChoiceField(choices=['deposit', 'withdraw'], help_text="Transaction type: deposit or withdraw")
 
 
 class AdminWalletTransferSerializer(serializers.ModelSerializer):

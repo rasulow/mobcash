@@ -178,6 +178,7 @@ class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         ser.is_valid(raise_exception=True)
         to_user_id = ser.validated_data["to_user_id"]
         amount: Decimal = ser.validated_data["amount"]
+        transaction_type = ser.validated_data["transaction_type"]
 
         from_wallet, _ = Wallet.objects.get_or_create(user=request.user)
         to_user = User.objects.filter(pk=to_user_id).first()
@@ -200,13 +201,26 @@ class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         with db_transaction.atomic():
             from_wallet = Wallet.objects.select_for_update().get(pk=from_wallet.pk)
             to_wallet = Wallet.objects.select_for_update().get(pk=to_wallet.pk)
-            if from_wallet.balance < amount:
-                return Response(
-                    {"detail": f"Недостаточно средств: баланс {from_wallet.balance}, нужно {amount}."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") - amount)
-            Wallet.objects.filter(pk=to_wallet.pk).update(balance=F("balance") + amount)
+            
+            if transaction_type == "deposit":
+                # Deposit: main_cashier sends money to cashier
+                if from_wallet.balance < amount:
+                    return Response(
+                        {"detail": f"Недостаточно средств: баланс {from_wallet.balance}, нужно {amount}."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") - amount)
+                Wallet.objects.filter(pk=to_wallet.pk).update(balance=F("balance") + amount)
+            else:  # withdraw
+                # Withdraw: main_cashier takes money from cashier
+                if to_wallet.balance < amount:
+                    return Response(
+                        {"detail": f"Недостаточно средств у кассира: баланс {to_wallet.balance}, нужно {amount}."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") + amount)
+                Wallet.objects.filter(pk=to_wallet.pk).update(balance=F("balance") - amount)
+            
             wt = WalletTransfer.objects.create(from_wallet=from_wallet, to_wallet=to_wallet, amount=amount)
 
         return Response(WalletTransferSerializer(wt).data, status=status.HTTP_201_CREATED)

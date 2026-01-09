@@ -67,6 +67,7 @@ class WalletTransferSerializer(serializers.ModelSerializer):
 class WalletTransferCreateSerializer(serializers.Serializer):
     to_user_id = serializers.IntegerField()
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
+    transaction_type = serializers.ChoiceField(choices=['deposit', 'withdraw'], help_text="Transaction type: deposit or withdraw")
 
 
 class SPMTransactionSerializer(serializers.Serializer):
