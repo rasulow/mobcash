@@ -1,6 +1,7 @@
 """
 ViewSet for Data Integration API endpoints
 """
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -8,6 +9,7 @@ from rest_framework.response import Response
 from core.integration_api import get_integration_client, IntegrationApiError
 
 from .integration_serializers import (
+    IntegrationResponseSerializer,
     IntegrationTransactionsRequestSerializer,
     IntegrationUsersRequestSerializer,
 )
@@ -22,6 +24,11 @@ class IntegrationViewSet(viewsets.GenericViewSet):
     - POST /api/integration/txns/ - Get transactions by type and date range
     """
     
+    @swagger_auto_schema(
+        method='post',
+        request_body=IntegrationUsersRequestSerializer,
+        responses={200: IntegrationResponseSerializer}
+    )
     @action(detail=False, methods=["post"], url_path="users")
     def get_users(self, request):
         """
@@ -116,6 +123,11 @@ class IntegrationViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @swagger_auto_schema(
+        method='post',
+        request_body=IntegrationTransactionsRequestSerializer,
+        responses={200: IntegrationResponseSerializer}
+    )
     @action(detail=False, methods=["post"], url_path="txns")
     def get_transactions(self, request):
         """
