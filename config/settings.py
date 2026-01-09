@@ -211,3 +211,8 @@ LOGOUT_REDIRECT_URL = "login"
 
 # External APIs
 YILDIZTOP_API_BASE = os.environ.get("YILDIZTOP_API_BASE", "https://yildiztop.com/api")
+
+# SPM (Sports Manager) API
+SPM_API_BASE = os.environ.get("SPM_API_BASE", "https://ext.sportsmanager.app")
+SPM_PUBLIC_KEY = os.environ.get("SPM_PUBLIC_KEY", "")
+SPM_SECRET_KEY = os.environ.get("SPM_SECRET_KEY", "")

@@ -1,0 +1,25 @@
+SPM API Integration - Required Dependencies
+==========================================
+
+To use the SPM API integration, you need to install the following package:
+
+pip install pycryptodome
+
+This package provides AES encryption capabilities required for secure
+communication with the SPM API.
+
+After installation, make sure to:
+1. Copy env.example to .env if you haven't already
+2. Update the SPM credentials in .env:
+   - SPM_API_BASE=https://ext.sportsmanager.app
+   - SPM_PUBLIC_KEY=7440094f-9295-4508-9c6a-bb8ebdf5bbe3
+   - SPM_SECRET_KEY=Oml77xzoMofOG0ch4gzdciCc81c7Pc
+
+3. Run migrations if needed:
+   python manage.py migrate
+
+4. Test the integration using the API endpoints:
+   POST /api/spm/deposit/
+   POST /api/spm/withdraw/
+
+See SPM_API_INTEGRATION.md for complete documentation.

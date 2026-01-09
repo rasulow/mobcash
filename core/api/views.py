@@ -9,9 +9,12 @@ from rest_framework.response import Response
 
 from core.external_api import ExternalApiError, fetch_yildiztop_users_by_referral_token, post_yildiztop_update_balance
 from core.models import Transaction, Wallet, WalletTransfer
+from core.spm_api import get_spm_client, SPMApiError
 
 from .permissions import IsMainCashier
 from .serializers import (
+    SPMTransactionResponseSerializer,
+    SPMTransactionSerializer,
     TransactionCreateSerializer,
     TransactionSerializer,
     WalletSerializer,
@@ -194,5 +197,166 @@ class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             wt = WalletTransfer.objects.create(from_wallet=from_wallet, to_wallet=to_wallet, amount=amount)
 
         return Response(WalletTransferSerializer(wt).data, status=status.HTTP_201_CREATED)
+
+
+class SPMTransactionViewSet(viewsets.GenericViewSet):
+    """
+    ViewSet for SPM (Sports Manager) deposit/withdraw transactions.
+    
+    Endpoints:
+    - POST /api/spm/deposit/ - Deposit to SPM user
+    - POST /api/spm/withdraw/ - Withdraw from SPM user
+    """
+    serializer_class = SPMTransactionSerializer
+    
+    @action(detail=False, methods=["post"], url_path="deposit")
+    def deposit(self, request):
+        """
+        Deposit funds to SPM user account.
+        
+        Request body:
+        {
+            "amount": 100.00,
+            "country_code": "TM",
+            "phone": "+99365123456",
+            "remarks": "Optional deposit note"
+        }
+        
+        Response:
+        {
+            "balance": 1000.00,
+            "txn_id": "unique-transaction-id",
+            "message": "Deposit successful"
+        }
+        """
+        serializer = SPMTransactionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        amount = serializer.validated_data["amount"]
+        country_code = serializer.validated_data["country_code"]
+        phone = serializer.validated_data["phone"]
+        remarks = serializer.validated_data.get("remarks", "")
+        
+        # Generate unique transaction ID
+        import uuid
+        txn_id = str(uuid.uuid4())
+        
+        try:
+            # Call SPM API
+            spm_client = get_spm_client()
+            balance = spm_client.deposit(
+                amount=amount,
+                country_code=country_code,
+                phone=phone,
+                txn_id=txn_id,
+                remarks=remarks
+            )
+            
+            # Return success response
+            response_data = {
+                "balance": balance,
+                "txn_id": txn_id,
+                "message": "Deposit successful"
+            }
+            return Response(
+                SPMTransactionResponseSerializer(response_data).data,
+                status=status.HTTP_200_OK
+            )
+            
+        except SPMApiError as e:
+            return Response(
+                {
+                    "error": {
+                        "message": str(e),
+                        "errorCode": e.error_code
+                    }
+                },
+                status=e.status_code
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": {
+                        "message": f"Internal error: {str(e)}",
+                        "errorCode": "INTERNAL_ERROR"
+                    }
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=["post"], url_path="withdraw")
+    def withdraw(self, request):
+        """
+        Withdraw funds from SPM user account.
+        
+        Request body:
+        {
+            "amount": 50.00,
+            "country_code": "TM",
+            "phone": "+99365123456",
+            "remarks": "Optional withdrawal note"
+        }
+        
+        Response:
+        {
+            "balance": 950.00,
+            "txn_id": "unique-transaction-id",
+            "message": "Withdrawal successful"
+        }
+        """
+        serializer = SPMTransactionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        amount = serializer.validated_data["amount"]
+        country_code = serializer.validated_data["country_code"]
+        phone = serializer.validated_data["phone"]
+        remarks = serializer.validated_data.get("remarks", "")
+        
+        # Generate unique transaction ID
+        import uuid
+        txn_id = str(uuid.uuid4())
+        
+        try:
+            # Call SPM API
+            spm_client = get_spm_client()
+            balance = spm_client.withdraw(
+                amount=amount,
+                country_code=country_code,
+                phone=phone,
+                txn_id=txn_id,
+                remarks=remarks
+            )
+            
+            # Return success response
+            response_data = {
+                "balance": balance,
+                "txn_id": txn_id,
+                "message": "Withdrawal successful"
+            }
+            return Response(
+                SPMTransactionResponseSerializer(response_data).data,
+                status=status.HTTP_200_OK
+            )
+            
+        except SPMApiError as e:
+            return Response(
+                {
+                    "error": {
+                        "message": str(e),
+                        "errorCode": e.error_code
+                    }
+                },
+                status=e.status_code
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": {
+                        "message": f"Internal error: {str(e)}",
+                        "errorCode": "INTERNAL_ERROR"
+                    }
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 

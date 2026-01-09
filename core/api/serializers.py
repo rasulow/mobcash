@@ -69,3 +69,42 @@ class WalletTransferCreateSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
 
 
+class SPMTransactionSerializer(serializers.Serializer):
+    """Serializer for SPM deposit/withdraw requests"""
+    amount = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        help_text="Amount in SPM currency"
+    )
+    country_code = serializers.CharField(
+        max_length=2,
+        help_text="Country code (e.g., TM, UZ)"
+    )
+    phone = serializers.CharField(
+        max_length=20,
+        help_text="User's phone number"
+    )
+    remarks = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        help_text="Optional transaction remarks"
+    )
+
+
+class SPMTransactionResponseSerializer(serializers.Serializer):
+    """Serializer for SPM transaction response"""
+    balance = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Updated balance after transaction"
+    )
+    txn_id = serializers.CharField(
+        help_text="Transaction ID"
+    )
+    message = serializers.CharField(
+        help_text="Success message"
+    )
+
+
