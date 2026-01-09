@@ -166,6 +166,11 @@ class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     serializer_class = WalletTransferSerializer
     permission_classes = [IsMainCashier]
 
+    def get_serializer_class(self):
+        if self.action == "create":
+            return WalletTransferCreateSerializer
+        return WalletTransferSerializer
+
     def create(self, request, *args, **kwargs):
         ser = WalletTransferCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
