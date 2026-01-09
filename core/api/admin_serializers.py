@@ -76,6 +76,12 @@ class AdminGroupSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "permissions"]
 
 
+class WalletCreateSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    currency = serializers.CharField(max_length=8, default="TMT", required=False)
+    balance = serializers.DecimalField(max_digits=12, decimal_places=2, default=0, min_value=0, required=False)
+
+
 class AdminWalletSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="user.id", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)

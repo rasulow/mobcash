@@ -17,6 +17,7 @@ from .admin_serializers import (
     AdminUserSerializer,
     AdminWalletSerializer,
     AdminWalletTransferSerializer,
+    WalletCreateSerializer,
     WalletSetBalanceSerializer,
 )
 from .permissions import IsSuperAdmin, IsSuperAdminOrMainCashier
@@ -61,7 +62,58 @@ class AdminWalletViewSet(viewsets.ModelViewSet):
     queryset = Wallet.objects.select_related("user").all().order_by("user__username")
     serializer_class = AdminWalletSerializer
     permission_classes = [IsSuperAdmin]
-    http_method_names = ["get", "patch", "put", "head", "options"]
+    http_method_names = ["get", "post", "patch", "put", "head", "options"]
+
+    def get_permissions(self):
+        """
+        superadmin: full access
+        main_cashier: can create wallets for cashier users only
+        """
+        if self.action == "create":
+            return [IsSuperAdminOrMainCashier()]
+        return [IsSuperAdmin()]
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return WalletCreateSerializer
+        return AdminWalletSerializer
+
+    def create(self, request, *args, **kwargs):
+        """
+        Superadmin: create a wallet for any user.
+        Main cashier: create a wallet for cashier users only.
+        """
+        ser = WalletCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        user_id = ser.validated_data["user_id"]
+        currency = ser.validated_data.get("currency", "TMT")
+        balance = ser.validated_data.get("balance", Decimal("0"))
+
+        user = User.objects.filter(pk=user_id).first()
+        if not user:
+            return Response({"detail": "Пользователь не найден."}, status=status.HTTP_404_NOT_FOUND)
+
+        # main_cashier can only create wallets for cashier users
+        if not request.user.is_superuser:
+            if not user.groups.filter(name="cashier").exists():
+                return Response(
+                    {"detail": "Можно создавать кошельки только для пользователей с ролью cashier."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if user.is_superuser or user.groups.filter(name="main_cashier").exists():
+                return Response(
+                    {"detail": "Нельзя создавать кошельки для superadmin или main_cashier."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        if Wallet.objects.filter(user=user).exists():
+            return Response(
+                {"detail": "У этого пользователя уже есть кошелёк."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        wallet = Wallet.objects.create(user=user, currency=currency, balance=balance)
+        return Response(AdminWalletSerializer(wallet).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=["get"], url_path="me")
     def me(self, request):
