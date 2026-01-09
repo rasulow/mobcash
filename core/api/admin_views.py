@@ -1,6 +1,12 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from rest_framework import mixins, viewsets
+from django.db import transaction as db_transaction
+from django.db.models import F
+from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from core.models import Transaction, Wallet, WalletTransfer
 
@@ -11,8 +17,10 @@ from .admin_serializers import (
     AdminUserSerializer,
     AdminWalletSerializer,
     AdminWalletTransferSerializer,
+    WalletSetBalanceSerializer,
 )
 from .permissions import IsSuperAdmin, IsSuperAdminOrMainCashier
+from .serializers import WalletTransferCreateSerializer
 
 User = get_user_model()
 
@@ -55,6 +63,28 @@ class AdminWalletViewSet(viewsets.ModelViewSet):
     permission_classes = [IsSuperAdmin]
     http_method_names = ["get", "patch", "put", "head", "options"]
 
+    @action(detail=False, methods=["get"], url_path="me")
+    def me(self, request):
+        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+        return Response(AdminWalletSerializer(wallet).data)
+
+    @action(detail=False, methods=["post"], url_path="me/set-balance")
+    def set_my_balance(self, request):
+        """
+        Superadmin only: set own wallet balance directly.
+        """
+        ser = WalletSetBalanceSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        balance: Decimal = ser.validated_data["balance"]
+
+        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+        with db_transaction.atomic():
+            wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
+            Wallet.objects.filter(pk=wallet.pk).update(balance=balance)
+            wallet.refresh_from_db(fields=["balance", "currency"])
+
+        return Response(AdminWalletSerializer(wallet).data, status=status.HTTP_200_OK)
+
 
 class AdminTransactionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     queryset = Transaction.objects.select_related("wallet", "wallet__user").all().order_by("-created_at")
@@ -62,7 +92,9 @@ class AdminTransactionViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, 
     permission_classes = [IsSuperAdmin]
 
 
-class AdminWalletTransferViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+class AdminWalletTransferViewSet(
+    mixins.CreateModelMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
+):
     queryset = WalletTransfer.objects.select_related(
         "from_wallet",
         "from_wallet__user",
@@ -71,5 +103,48 @@ class AdminWalletTransferViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixi
     ).all().order_by("-created_at")
     serializer_class = AdminWalletTransferSerializer
     permission_classes = [IsSuperAdmin]
+
+    def create(self, request, *args, **kwargs):
+        """
+        Superadmin only: transfer from superadmin wallet to main_cashier wallet.
+        """
+        ser = WalletTransferCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        to_user_id = ser.validated_data["to_user_id"]
+        amount: Decimal = ser.validated_data["amount"]
+
+        from_wallet, _ = Wallet.objects.get_or_create(user=request.user)
+
+        to_user = User.objects.filter(pk=to_user_id).first()
+        if not to_user:
+            return Response({"detail": "Пользователь не найден."}, status=status.HTTP_404_NOT_FOUND)
+        if not to_user.groups.filter(name="main_cashier").exists():
+            return Response(
+                {"detail": "Можно переводить только пользователям с ролью main_cashier."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if to_user.is_superuser:
+            return Response(
+                {"detail": "Нельзя переводить superadmin через этот endpoint."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if to_user.id == request.user.id:
+            return Response({"detail": "Нельзя переводить самому себе."}, status=status.HTTP_400_BAD_REQUEST)
+
+        to_wallet, _ = Wallet.objects.get_or_create(user=to_user)
+
+        with db_transaction.atomic():
+            from_wallet = Wallet.objects.select_for_update().get(pk=from_wallet.pk)
+            to_wallet = Wallet.objects.select_for_update().get(pk=to_wallet.pk)
+            if from_wallet.balance < amount:
+                return Response(
+                    {"detail": f"Недостаточно средств: баланс {from_wallet.balance}, нужно {amount}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") - amount)
+            Wallet.objects.filter(pk=to_wallet.pk).update(balance=F("balance") + amount)
+            wt = WalletTransfer.objects.create(from_wallet=from_wallet, to_wallet=to_wallet, amount=amount)
+
+        return Response(AdminWalletTransferSerializer(wt).data, status=status.HTTP_201_CREATED)
 
 

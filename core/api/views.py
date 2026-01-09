@@ -167,6 +167,18 @@ class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         to_user = User.objects.filter(pk=to_user_id).first()
         if not to_user:
             return Response({"detail": "Пользователь не найден."}, status=status.HTTP_404_NOT_FOUND)
+        if to_user.id == request.user.id:
+            return Response({"detail": "Нельзя переводить самому себе."}, status=status.HTTP_400_BAD_REQUEST)
+        if not to_user.groups.filter(name="cashier").exists():
+            return Response(
+                {"detail": "Можно переводить только пользователям с ролью cashier."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if to_user.is_superuser or to_user.groups.filter(name="main_cashier").exists():
+            return Response(
+                {"detail": "Нельзя переводить суперпользователям или main_cashier через этот endpoint."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         to_wallet, _ = Wallet.objects.get_or_create(user=to_user)
 
         with db_transaction.atomic():

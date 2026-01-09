@@ -62,6 +62,10 @@ class AdminUserSerializer(serializers.ModelSerializer):
         return instance
 
 
+class WalletSetBalanceSerializer(serializers.Serializer):
+    balance = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=0)
+
+
 class AdminGroupSerializer(serializers.ModelSerializer):
     permissions = serializers.PrimaryKeyRelatedField(
         queryset=Permission.objects.all(), many=True, required=False

@@ -92,7 +92,7 @@ Use header:
 - `GET /api/transactions/{id}/`: детали транзакции (с проверкой прав)
 - `POST /api/transactions/`: создать транзакцию (делает внешний запрос `update-balance` и сохраняет историю)
 - `GET /api/wallet-transfers/`: список переводов кошельков (**только** `main_cashier`)
-- `POST /api/wallet-transfers/`: перевод из кошелька кассира другому пользователю (**только** `main_cashier`)
+- `POST /api/wallet-transfers/`: перевод из кошелька `main_cashier` пользователю с ролью `cashier` (**только** `main_cashier`)
 
 ### Cashier API (create cashier accounts)
 
@@ -102,11 +102,51 @@ Use header:
 
 Доступ только для `is_superuser`:
 
-- `GET/POST /api/admin/users/`, `GET/PATCH/PUT/DELETE /api/admin/users/{id}/`: управление пользователями (включая группы/пароль)
+- `/api/admin/users/`:
+  - `superadmin`: полный CRUD
+  - `main_cashier`: `GET` list/retrieve + `POST` create **cashier** (без возможности назначать группы/флаги)
 - `GET/POST /api/admin/groups/`, `GET/PATCH/PUT/DELETE /api/admin/groups/{id}/`: управление группами и permissions
 - `GET /api/admin/wallets/`, `PATCH/PUT /api/admin/wallets/{id}/`: просмотр/редактирование кошельков
 - `GET /api/admin/transactions/`, `GET /api/admin/transactions/{id}/`: просмотр всех транзакций
-- `GET /api/admin/wallet-transfers/`, `GET /api/admin/wallet-transfers/{id}/`: просмотр всех переводов кошельков
+- `GET/POST /api/admin/wallet-transfers/`, `GET /api/admin/wallet-transfers/{id}/`: просмотр всех переводов кошельков (+ создание перевода superadmin → main_cashier)
+
+### Wallet & Balance APIs (role-based)
+
+#### 1) Superadmin can update own balance (set)
+
+- `POST /api/admin/wallets/me/set-balance/`
+- Body:
+
+```json
+{ "balance": "1000.00" }
+```
+
+#### 2) Superadmin distributes from own balance to main_cashier
+
+- `POST /api/admin/wallet-transfers/`
+- Body:
+
+```json
+{ "to_user_id": 123, "amount": "50.00" }
+```
+
+- Rules:
+  - recipient must be in group `main_cashier`
+  - cannot transfer to self
+
+#### 3) Main_cashier distributes from own balance to cashiers
+
+- `POST /api/wallet-transfers/`
+- Body:
+
+```json
+{ "to_user_id": 456, "amount": "25.00" }
+```
+
+- Rules:
+  - recipient must be in group `cashier`
+  - cannot transfer to self
+  - cannot transfer to `superadmin` or `main_cashier` via this endpoint
 
 ## Next steps (typical for MobCash)
 
