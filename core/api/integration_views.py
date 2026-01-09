@@ -4,6 +4,7 @@ ViewSet for Data Integration API endpoints
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from core.integration_api import get_integration_client, IntegrationApiError
@@ -23,6 +24,7 @@ class IntegrationViewSet(viewsets.GenericViewSet):
     - POST /api/integration/users/ - Get users by date range or last updated
     - POST /api/integration/txns/ - Get transactions by type and date range
     """
+    permission_classes = [AllowAny]
     
     @swagger_auto_schema(
         method='post',
