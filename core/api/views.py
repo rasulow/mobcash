@@ -173,6 +173,16 @@ class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             return WalletTransferCreateSerializer
         return WalletTransferSerializer
 
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        
+        # Filter by transaction_type if provided
+        transaction_type = request.query_params.get('transaction_type')
+        if transaction_type in ['deposit', 'withdraw']:
+            qs = qs.filter(transaction_type=transaction_type)
+        
+        return Response(WalletTransferSerializer(qs[:200], many=True).data)
+
     def create(self, request, *args, **kwargs):
         ser = WalletTransferCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
@@ -221,7 +231,7 @@ class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
                 Wallet.objects.filter(pk=from_wallet.pk).update(balance=F("balance") + amount)
                 Wallet.objects.filter(pk=to_wallet.pk).update(balance=F("balance") - amount)
             
-            wt = WalletTransfer.objects.create(from_wallet=from_wallet, to_wallet=to_wallet, amount=amount)
+            wt = WalletTransfer.objects.create(from_wallet=from_wallet, to_wallet=to_wallet, amount=amount, transaction_type=transaction_type)
 
         return Response(WalletTransferSerializer(wt).data, status=status.HTTP_201_CREATED)
 

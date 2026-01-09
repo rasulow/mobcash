@@ -101,6 +101,12 @@ class WalletTransfer(models.Model):
         verbose_name="Кому",
     )
     amount = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Сумма")
+    transaction_type = models.CharField(
+        max_length=10,
+        choices=[("deposit", "Deposit"), ("withdraw", "Withdraw")],
+        default="deposit",
+        verbose_name="Тип транзакции"
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата")
 
     class Meta:

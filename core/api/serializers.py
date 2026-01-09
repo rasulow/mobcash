@@ -61,7 +61,7 @@ class WalletTransferSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WalletTransfer
-        fields = ["id", "from_user_id", "from_username", "to_user_id", "to_username", "amount", "created_at"]
+        fields = ["id", "from_user_id", "from_username", "to_user_id", "to_username", "amount", "transaction_type", "created_at"]
 
 
 class WalletTransferCreateSerializer(serializers.Serializer):
