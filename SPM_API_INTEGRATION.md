@@ -29,6 +29,14 @@ pip install pycryptodome
 ### Base URL
 All SPM endpoints are available under `/api/spm/`
 
+### Available Endpoints
+
+1. **POST** `/api/spm/deposit/` - Deposit to SPM user
+2. **POST** `/api/spm/withdraw/` - Withdraw from SPM user
+3. **POST** `/api/spm/deposit/get-status/` - Get deposit transaction status
+4. **POST** `/api/spm/get-by-phone/` - Get user details by phone
+5. **POST** `/api/spm/session/` - Create or destroy user session
+
 ### Authentication
 All endpoints require JWT authentication. Include the token in the Authorization header:
 ```
@@ -171,6 +179,222 @@ curl -X POST https://your-domain.com/api/spm/withdraw/ \
 
 ---
 
+## Get Deposit Status
+
+**Endpoint:** `POST /api/spm/deposit/get-status/`
+
+Retrieves the status of a deposit transaction.
+
+### Request Body
+
+```json
+{
+  "txn_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `txn_id` | String | Yes | Transaction ID to check |
+
+### Success Response
+
+**Status Code:** `200 OK`
+
+```json
+{
+  "balance": 1000.00,
+  "txn_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### Error Response
+
+**Status Code:** `400 Bad Request` / `502 Bad Gateway` / `503 Service Unavailable`
+
+```json
+{
+  "error": {
+    "message": "Error description",
+    "errorCode": "ERROR_CODE"
+  }
+}
+```
+
+### Example cURL Request
+
+```bash
+curl -X POST https://your-domain.com/api/spm/deposit/get-status/ \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "txn_id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+---
+
+## Get User by Phone
+
+**Endpoint:** `POST /api/spm/get-by-phone/`
+
+Retrieves user details based on phone number.
+
+### Request Body
+
+```json
+{
+  "country_code": "TM",
+  "phone": "+99365123456"
+}
+```
+
+#### Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `country_code` | String | Yes | User's country code (e.g., 'TM', 'UZ') |
+| `phone` | String | Yes | User's phone number |
+
+### Success Response
+
+**Status Code:** `200 OK`
+
+```json
+{
+  "balance": 1000.00,
+  "user_name": "John1234569",
+  "is_active": true
+}
+```
+
+#### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `balance` | Decimal | User's current balance |
+| `user_name` | String | User's username in SPM |
+| `is_active` | Boolean | Whether the user account is active |
+
+### Error Response
+
+**Status Code:** `400 Bad Request` / `502 Bad Gateway` / `503 Service Unavailable`
+
+```json
+{
+  "error": {
+    "message": "Error description",
+    "errorCode": "ERROR_CODE"
+  }
+}
+```
+
+### Example cURL Request
+
+```bash
+curl -X POST https://your-domain.com/api/spm/get-by-phone/ \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "country_code": "TM",
+    "phone": "+99365123456"
+  }'
+```
+
+---
+
+## Session Management
+
+**Endpoint:** `POST /api/spm/session/`
+
+Creates or destroys a user session in the SPM system.
+
+### Request Body
+
+```json
+{
+  "user_id": "user123",
+  "action": "create"
+}
+```
+
+#### Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `user_id` | String | Yes | User ID in SPM system |
+| `action` | String | Yes | Action to perform: `"create"` or `"destroy"` |
+
+### Success Response (Create)
+
+**Status Code:** `200 OK`
+
+```json
+{
+  "session": "session_token_here",
+  "message": "Session created successfully"
+}
+```
+
+### Success Response (Destroy)
+
+**Status Code:** `200 OK`
+
+```json
+{
+  "session": null,
+  "message": "Session destroyed successfully"
+}
+```
+
+#### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `session` | String/Null | Session token if created, null if destroyed |
+| `message` | String | Success message |
+
+### Error Response
+
+**Status Code:** `400 Bad Request` / `502 Bad Gateway` / `503 Service Unavailable`
+
+```json
+{
+  "error": {
+    "message": "Error description",
+    "errorCode": "ERROR_CODE"
+  }
+}
+```
+
+### Example cURL Requests
+
+**Create Session:**
+```bash
+curl -X POST https://your-domain.com/api/spm/session/ \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user123",
+    "action": "create"
+  }'
+```
+
+**Destroy Session:**
+```bash
+curl -X POST https://your-domain.com/api/spm/session/ \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user123",
+    "action": "destroy"
+  }'
+```
+
+---
+
 ## Important Notes
 
 ### Currency Handling
@@ -195,6 +419,9 @@ Common error codes you may encounter:
 |------------|-------------|
 | `DEPOSIT_ERROR` | Deposit transaction failed |
 | `WITHDRAW_ERROR` | Withdrawal transaction failed |
+| `STATUS_ERROR` | Transaction status check failed |
+| `USER_LOOKUP_ERROR` | User lookup by phone failed |
+| `SESSION_ERROR` | Session management failed |
 | `NETWORK_ERROR` | Network connectivity issue |
 | `INVALID_RESPONSE` | Invalid response from SPM |
 | `HTTP_ERROR` | HTTP error from SPM API |
@@ -216,6 +443,7 @@ The integration uses AES-256-CBC symmetric encryption to secure payload data:
 
 You can use the SPM client directly in your code:
 
+**Deposit:**
 ```python
 from core.spm_api import get_spm_client, SPMApiError
 from decimal import Decimal
@@ -230,6 +458,53 @@ try:
         remarks="Test deposit"
     )
     print(f"New balance: {balance}")
+except SPMApiError as e:
+    print(f"Error: {e} (Code: {e.error_code})")
+```
+
+**Check Deposit Status:**
+```python
+try:
+    client = get_spm_client()
+    balance = client.get_deposit_status(txn_id="unique-txn-id")
+    print(f"Current balance: {balance}")
+except SPMApiError as e:
+    print(f"Error: {e} (Code: {e.error_code})")
+```
+
+**Get User by Phone:**
+```python
+try:
+    client = get_spm_client()
+    user_data = client.get_user_by_phone(
+        country_code="TM",
+        phone="+99365123456"
+    )
+    print(f"User: {user_data['user_name']}")
+    print(f"Balance: {user_data['balance']}")
+    print(f"Active: {user_data['is_active']}")
+except SPMApiError as e:
+    print(f"Error: {e} (Code: {e.error_code})")
+```
+
+**Session Management:**
+```python
+try:
+    client = get_spm_client()
+    
+    # Create session
+    session_token = client.manage_session(
+        user_id="user123",
+        action="create"
+    )
+    print(f"Session created: {session_token}")
+    
+    # Destroy session
+    result = client.manage_session(
+        user_id="user123",
+        action="destroy"
+    )
+    print(f"Session destroyed: {result}")  # Will be None
 except SPMApiError as e:
     print(f"Error: {e} (Code: {e.error_code})")
 ```

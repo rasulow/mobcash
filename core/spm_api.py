@@ -304,6 +304,121 @@ class SPMClient:
             raise SPMApiError("No balance returned from withdrawal", "INVALID_RESPONSE", 502)
         
         return Decimal(str(balance))
+    
+    def get_deposit_status(self, txn_id: str) -> Decimal:
+        """
+        Get the status of a deposit transaction.
+        
+        Args:
+            txn_id: Transaction ID to check
+            
+        Returns:
+            Current balance
+            
+        Raises:
+            SPMApiError: If status check fails
+        """
+        payload = {
+            "txnId": txn_id,
+        }
+        
+        response = self._make_request("/txn/user/deposit/get-status", payload)
+        
+        # Check for errors
+        if response.get("error"):
+            error = response["error"]
+            raise SPMApiError(
+                error.get("message", "Status check failed"),
+                error.get("errorCode", "STATUS_ERROR"),
+                response.get("statusCode", 400)
+            )
+        
+        # Extract balance
+        data = response.get("data", {})
+        balance = data.get("balance")
+        
+        if balance is None:
+            raise SPMApiError("No balance returned from status check", "INVALID_RESPONSE", 502)
+        
+        return Decimal(str(balance))
+    
+    def get_user_by_phone(self, country_code: str, phone: str) -> dict:
+        """
+        Get user details by phone number.
+        
+        Args:
+            country_code: User's country code (e.g., 'TM', 'UZ')
+            phone: User's phone number
+            
+        Returns:
+            Dictionary with user details: {balance, userName, isActive}
+            
+        Raises:
+            SPMApiError: If user lookup fails
+        """
+        payload = {
+            "countryCode": country_code,
+            "phone": phone,
+        }
+        
+        response = self._make_request("/txn/user/get-by-phone", payload)
+        
+        # Check for errors
+        if response.get("error"):
+            error = response["error"]
+            raise SPMApiError(
+                error.get("message", "User lookup failed"),
+                error.get("errorCode", "USER_LOOKUP_ERROR"),
+                response.get("statusCode", 400)
+            )
+        
+        # Extract user data
+        data = response.get("data", {})
+        
+        return {
+            "balance": Decimal(str(data.get("balance", 0))),
+            "user_name": data.get("userName", ""),
+            "is_active": data.get("isActive", False),
+        }
+    
+    def manage_session(self, user_id: str, action: str) -> str | None:
+        """
+        Create or destroy a user session.
+        
+        Args:
+            user_id: User ID in SPM system
+            action: Either 'create' or 'destroy'
+            
+        Returns:
+            Session token if action is 'create', None if action is 'destroy'
+            
+        Raises:
+            SPMApiError: If session management fails
+        """
+        if action not in ["create", "destroy"]:
+            raise ValueError("action must be 'create' or 'destroy'")
+        
+        payload = {
+            "userId": user_id,
+            "action": action,
+        }
+        
+        response = self._make_request("/user/session", payload)
+        
+        # Check for errors
+        if response.get("error"):
+            error = response["error"]
+            raise SPMApiError(
+                error.get("message", "Session management failed"),
+                error.get("errorCode", "SESSION_ERROR"),
+                response.get("statusCode", 400)
+            )
+        
+        # Extract session token
+        data = response.get("data", {})
+        session = data.get("session")
+        
+        return session
 
 
 # Singleton instance

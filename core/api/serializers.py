@@ -108,3 +108,73 @@ class SPMTransactionResponseSerializer(serializers.Serializer):
     )
 
 
+class SPMDepositStatusSerializer(serializers.Serializer):
+    """Serializer for checking deposit status"""
+    txn_id = serializers.CharField(
+        max_length=255,
+        help_text="Transaction ID to check"
+    )
+
+
+class SPMDepositStatusResponseSerializer(serializers.Serializer):
+    """Serializer for deposit status response"""
+    balance = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="Current balance"
+    )
+    txn_id = serializers.CharField(
+        help_text="Transaction ID"
+    )
+
+
+class SPMGetUserByPhoneSerializer(serializers.Serializer):
+    """Serializer for getting user by phone"""
+    country_code = serializers.CharField(
+        max_length=2,
+        help_text="Country code (e.g., TM, UZ)"
+    )
+    phone = serializers.CharField(
+        max_length=20,
+        help_text="User's phone number"
+    )
+
+
+class SPMUserResponseSerializer(serializers.Serializer):
+    """Serializer for user details response"""
+    balance = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        help_text="User's balance"
+    )
+    user_name = serializers.CharField(
+        help_text="User's username"
+    )
+    is_active = serializers.BooleanField(
+        help_text="Whether user is active"
+    )
+
+
+class SPMSessionSerializer(serializers.Serializer):
+    """Serializer for session management"""
+    user_id = serializers.CharField(
+        max_length=255,
+        help_text="User ID in SPM system"
+    )
+    action = serializers.ChoiceField(
+        choices=["create", "destroy"],
+        help_text="Action to perform: 'create' or 'destroy'"
+    )
+
+
+class SPMSessionResponseSerializer(serializers.Serializer):
+    """Serializer for session response"""
+    session = serializers.CharField(
+        allow_null=True,
+        help_text="Session token (null if destroyed)"
+    )
+    message = serializers.CharField(
+        help_text="Success message"
+    )
+
+

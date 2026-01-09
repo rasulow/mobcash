@@ -13,8 +13,14 @@ from core.spm_api import get_spm_client, SPMApiError
 
 from .permissions import IsMainCashier
 from .serializers import (
+    SPMDepositStatusResponseSerializer,
+    SPMDepositStatusSerializer,
+    SPMGetUserByPhoneSerializer,
+    SPMSessionResponseSerializer,
+    SPMSessionSerializer,
     SPMTransactionResponseSerializer,
     SPMTransactionSerializer,
+    SPMUserResponseSerializer,
     TransactionCreateSerializer,
     TransactionSerializer,
     WalletSerializer,
@@ -335,6 +341,184 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             }
             return Response(
                 SPMTransactionResponseSerializer(response_data).data,
+                status=status.HTTP_200_OK
+            )
+            
+        except SPMApiError as e:
+            return Response(
+                {
+                    "error": {
+                        "message": str(e),
+                        "errorCode": e.error_code
+                    }
+                },
+                status=e.status_code
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": {
+                        "message": f"Internal error: {str(e)}",
+                        "errorCode": "INTERNAL_ERROR"
+                    }
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=["post"], url_path="deposit/get-status")
+    def get_deposit_status(self, request):
+        """
+        Get the status of a deposit transaction.
+        
+        Request body:
+        {
+            "txn_id": "550e8400-e29b-41d4-a716-446655440000"
+        }
+        
+        Response:
+        {
+            "balance": 1000.00,
+            "txn_id": "550e8400-e29b-41d4-a716-446655440000"
+        }
+        """
+        serializer = SPMDepositStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        txn_id = serializer.validated_data["txn_id"]
+        
+        try:
+            # Call SPM API
+            spm_client = get_spm_client()
+            balance = spm_client.get_deposit_status(txn_id=txn_id)
+            
+            # Return success response
+            response_data = {
+                "balance": balance,
+                "txn_id": txn_id
+            }
+            return Response(
+                SPMDepositStatusResponseSerializer(response_data).data,
+                status=status.HTTP_200_OK
+            )
+            
+        except SPMApiError as e:
+            return Response(
+                {
+                    "error": {
+                        "message": str(e),
+                        "errorCode": e.error_code
+                    }
+                },
+                status=e.status_code
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": {
+                        "message": f"Internal error: {str(e)}",
+                        "errorCode": "INTERNAL_ERROR"
+                    }
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=["post"], url_path="get-by-phone")
+    def get_user_by_phone(self, request):
+        """
+        Get user details by phone number.
+        
+        Request body:
+        {
+            "country_code": "TM",
+            "phone": "+99365123456"
+        }
+        
+        Response:
+        {
+            "balance": 1000.00,
+            "user_name": "John1234569",
+            "is_active": true
+        }
+        """
+        serializer = SPMGetUserByPhoneSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        country_code = serializer.validated_data["country_code"]
+        phone = serializer.validated_data["phone"]
+        
+        try:
+            # Call SPM API
+            spm_client = get_spm_client()
+            user_data = spm_client.get_user_by_phone(
+                country_code=country_code,
+                phone=phone
+            )
+            
+            # Return success response
+            return Response(
+                SPMUserResponseSerializer(user_data).data,
+                status=status.HTTP_200_OK
+            )
+            
+        except SPMApiError as e:
+            return Response(
+                {
+                    "error": {
+                        "message": str(e),
+                        "errorCode": e.error_code
+                    }
+                },
+                status=e.status_code
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": {
+                        "message": f"Internal error: {str(e)}",
+                        "errorCode": "INTERNAL_ERROR"
+                    }
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=["post"], url_path="session")
+    def manage_session(self, request):
+        """
+        Create or destroy a user session.
+        
+        Request body:
+        {
+            "user_id": "user123",
+            "action": "create"  // or "destroy"
+        }
+        
+        Response:
+        {
+            "session": "session_token_here",  // null if destroyed
+            "message": "Session created successfully"
+        }
+        """
+        serializer = SPMSessionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        user_id = serializer.validated_data["user_id"]
+        action = serializer.validated_data["action"]
+        
+        try:
+            # Call SPM API
+            spm_client = get_spm_client()
+            session_token = spm_client.manage_session(
+                user_id=user_id,
+                action=action
+            )
+            
+            # Return success response
+            response_data = {
+                "session": session_token,
+                "message": f"Session {action}d successfully"
+            }
+            return Response(
+                SPMSessionResponseSerializer(response_data).data,
                 status=status.HTTP_200_OK
             )
             
