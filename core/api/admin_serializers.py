@@ -65,7 +65,25 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
 
 class WalletIncreaseBalanceSerializer(serializers.Serializer):
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
+    amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=Decimal("0.01"), required=False
+    )
+    balance = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        required=False,
+        write_only=True,
+    )
+
+    def validate(self, attrs):
+        amount = attrs.get("amount")
+        balance = attrs.get("balance")
+        if amount is None:
+            if balance is None:
+                raise serializers.ValidationError({"amount": ["Обязательное поле."]})
+            attrs["amount"] = balance
+        return attrs
 
 
 class AdminGroupSerializer(serializers.ModelSerializer):

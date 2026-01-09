@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.db import transaction as db_transaction
 from django.db.models import F
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -173,6 +175,17 @@ class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             return WalletTransferCreateSerializer
         return WalletTransferSerializer
 
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                "transaction_type",
+                openapi.IN_QUERY,
+                description="Filter by transaction type",
+                type=openapi.TYPE_STRING,
+                enum=["deposit", "withdraw"],
+            )
+        ]
+    )
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
         
