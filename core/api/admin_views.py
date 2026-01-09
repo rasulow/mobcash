@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction as db_transaction
 from django.db.models import F
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -78,6 +79,11 @@ class AdminWalletViewSet(viewsets.ModelViewSet):
             return WalletCreateSerializer
         return AdminWalletSerializer
 
+    @swagger_auto_schema(
+        operation_description="Create a wallet for a user. Superadmin can create for any user, main_cashier can only create for cashier users.",
+        request_body=WalletCreateSerializer,
+        responses={201: AdminWalletSerializer, 400: "Bad Request", 403: "Forbidden", 404: "User not found"}
+    )
     def create(self, request, *args, **kwargs):
         """
         Superadmin: create a wallet for any user.
