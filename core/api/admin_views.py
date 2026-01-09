@@ -162,6 +162,11 @@ class AdminWalletTransferViewSet(
     serializer_class = AdminWalletTransferSerializer
     permission_classes = [IsSuperAdmin]
 
+    def get_serializer_class(self):
+        if self.action == "create":
+            return AdminWalletTransferCreateSerializer
+        return AdminWalletTransferSerializer
+
     def create(self, request, *args, **kwargs):
         """
         Superadmin only: transfer from superadmin wallet to main_cashier wallet.
