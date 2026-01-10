@@ -37,6 +37,14 @@ class IntegrationViewSet(viewsets.GenericViewSet):
     - POST /api/integration/txns/ - Get transactions by type and date range
     """
     permission_classes = [AllowAny]
+    serializer_class = IntegrationUsersRequestSerializer
+
+    def get_serializer_class(self):
+        if getattr(self, "action", None) == "get_transactions":
+            return IntegrationTransactionsRequestSerializer
+        if getattr(self, "action", None) == "get_users":
+            return IntegrationUsersRequestSerializer
+        return super().get_serializer_class()
     
     @swagger_auto_schema(
         method='post',
@@ -74,7 +82,7 @@ class IntegrationViewSet(viewsets.GenericViewSet):
             }
         }
         """
-        serializer = IntegrationUsersRequestSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         start_date = serializer.validated_data.get('startdate')
@@ -174,7 +182,7 @@ class IntegrationViewSet(viewsets.GenericViewSet):
             }
         }
         """
-        serializer = IntegrationTransactionsRequestSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         txn_type = serializer.validated_data['type']

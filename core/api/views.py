@@ -258,7 +258,21 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
     - POST /api/spm/withdraw/ - Withdraw from SPM user
     """
     serializer_class = SPMTransactionSerializer
+
+    def get_serializer_class(self):
+        if getattr(self, "action", None) == "get_deposit_status":
+            return SPMDepositStatusSerializer
+        if getattr(self, "action", None) == "get_user_by_phone":
+            return SPMGetUserByPhoneSerializer
+        if getattr(self, "action", None) == "manage_session":
+            return SPMSessionSerializer
+        if getattr(self, "action", None) == "register_user":
+            return SPMRegisterUserSerializer
+        if getattr(self, "action", None) in {"deposit", "withdraw"}:
+            return SPMTransactionSerializer
+        return super().get_serializer_class()
     
+    @swagger_auto_schema(method="post", request_body=SPMTransactionSerializer)
     @action(detail=False, methods=["post"], url_path="deposit")
     def deposit(self, request):
         """
@@ -279,7 +293,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             "message": "Deposit successful"
         }
         """
-        serializer = SPMTransactionSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         amount = serializer.validated_data["amount"]
@@ -336,6 +350,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @swagger_auto_schema(method="post", request_body=SPMTransactionSerializer)
     @action(detail=False, methods=["post"], url_path="withdraw")
     def withdraw(self, request):
         """
@@ -356,7 +371,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             "message": "Withdrawal successful"
         }
         """
-        serializer = SPMTransactionSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         amount = serializer.validated_data["amount"]
@@ -413,6 +428,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @swagger_auto_schema(method="post", request_body=SPMDepositStatusSerializer)
     @action(detail=False, methods=["post"], url_path="deposit/get-status")
     def get_deposit_status(self, request):
         """
@@ -429,7 +445,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             "txn_id": "550e8400-e29b-41d4-a716-446655440000"
         }
         """
-        serializer = SPMDepositStatusSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         txn_id = serializer.validated_data["txn_id"]
@@ -473,6 +489,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @swagger_auto_schema(method="post", request_body=SPMGetUserByPhoneSerializer)
     @action(detail=False, methods=["post"], url_path="get-by-phone")
     def get_user_by_phone(self, request):
         """
@@ -491,7 +508,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             "is_active": true
         }
         """
-        serializer = SPMGetUserByPhoneSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         country_code = serializer.validated_data["country_code"]
@@ -539,6 +556,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @swagger_auto_schema(method="post", request_body=SPMSessionSerializer)
     @action(detail=False, methods=["post"], url_path="session")
     def manage_session(self, request):
         """
@@ -556,7 +574,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             "message": "Session created successfully"
         }
         """
-        serializer = SPMSessionSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         user_id = serializer.validated_data["user_id"]
@@ -604,6 +622,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @swagger_auto_schema(method="post", request_body=SPMRegisterUserSerializer)
     @action(detail=False, methods=["post"], url_path="register")
     def register_user(self, request):
         """
@@ -630,7 +649,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             "statusCode": 200
         }
         """
-        serializer = SPMRegisterUserSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         names = serializer.validated_data["names"]

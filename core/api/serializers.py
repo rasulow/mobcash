@@ -1,4 +1,5 @@
 from decimal import Decimal
+from collections.abc import Mapping
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
@@ -78,19 +79,21 @@ class SPMTransactionSerializer(serializers.Serializer):
         min_value=Decimal("0.01"),
         help_text="Amount in SPM currency"
     )
-    country_code = serializers.CharField(
+    countryCode = serializers.CharField(
         max_length=2,
-        required=False,
+        source="country_code",
         help_text="Country code (e.g., TM, UZ)"
     )
-    countryCode = serializers.CharField(max_length=2, required=False, write_only=True)
     phone = serializers.CharField(
         max_length=20,
-        required=False,
         help_text="User's phone number"
     )
-    txn_id = serializers.CharField(max_length=255, required=False)
-    txnId = serializers.CharField(max_length=255, required=False, write_only=True)
+    txnId = serializers.CharField(
+        max_length=255,
+        source="txn_id",
+        required=False,
+        help_text="Transaction ID"
+    )
     remarks = serializers.CharField(
         max_length=255,
         required=False,
@@ -98,16 +101,14 @@ class SPMTransactionSerializer(serializers.Serializer):
         help_text="Optional transaction remarks"
     )
 
-    def validate(self, attrs):
-        if attrs.get("country_code") is None and attrs.get("countryCode") is not None:
-            attrs["country_code"] = attrs["countryCode"]
-        if attrs.get("txn_id") is None and attrs.get("txnId") is not None:
-            attrs["txn_id"] = attrs["txnId"]
-        if attrs.get("country_code") is None:
-            raise serializers.ValidationError({"country_code": ["Обязательное поле."]})
-        if attrs.get("phone") is None:
-            raise serializers.ValidationError({"phone": ["Обязательное поле."]})
-        return attrs
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            data = data.copy()
+            if "countryCode" not in data and "country_code" in data:
+                data["countryCode"] = data["country_code"]
+            if "txnId" not in data and "txn_id" in data:
+                data["txnId"] = data["txn_id"]
+        return super().to_internal_value(data)
 
 
 class SPMTransactionResponseSerializer(serializers.Serializer):
@@ -122,15 +123,18 @@ class SPMTransactionResponseSerializer(serializers.Serializer):
 
 class SPMDepositStatusSerializer(serializers.Serializer):
     """Serializer for checking deposit status"""
-    txn_id = serializers.CharField(max_length=255, required=False, help_text="Transaction ID to check")
-    txnId = serializers.CharField(max_length=255, required=False, write_only=True)
+    txnId = serializers.CharField(
+        max_length=255,
+        source="txn_id",
+        help_text="Transaction ID to check"
+    )
 
-    def validate(self, attrs):
-        if attrs.get("txn_id") is None and attrs.get("txnId") is not None:
-            attrs["txn_id"] = attrs["txnId"]
-        if attrs.get("txn_id") is None:
-            raise serializers.ValidationError({"txn_id": ["Обязательное поле."]})
-        return attrs
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            data = data.copy()
+            if "txnId" not in data and "txn_id" in data:
+                data["txnId"] = data["txn_id"]
+        return super().to_internal_value(data)
 
 
 class SPMDepositStatusResponseSerializer(serializers.Serializer):
@@ -145,16 +149,19 @@ class SPMDepositStatusResponseSerializer(serializers.Serializer):
 
 class SPMGetUserByPhoneSerializer(serializers.Serializer):
     """Serializer for getting user by phone"""
-    country_code = serializers.CharField(max_length=2, required=False, help_text="Country code (e.g., TM, UZ)")
-    countryCode = serializers.CharField(max_length=2, required=False, write_only=True)
+    countryCode = serializers.CharField(
+        max_length=2,
+        source="country_code",
+        help_text="Country code (e.g., TM, UZ)"
+    )
     phone = serializers.CharField(max_length=20, help_text="User's phone number")
 
-    def validate(self, attrs):
-        if attrs.get("country_code") is None and attrs.get("countryCode") is not None:
-            attrs["country_code"] = attrs["countryCode"]
-        if attrs.get("country_code") is None:
-            raise serializers.ValidationError({"country_code": ["Обязательное поле."]})
-        return attrs
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            data = data.copy()
+            if "countryCode" not in data and "country_code" in data:
+                data["countryCode"] = data["country_code"]
+        return super().to_internal_value(data)
 
 
 class SPMUserResponseSerializer(serializers.Serializer):
@@ -170,19 +177,22 @@ class SPMUserResponseSerializer(serializers.Serializer):
 
 class SPMSessionSerializer(serializers.Serializer):
     """Serializer for session management"""
-    user_id = serializers.CharField(max_length=255, required=False, help_text="User ID in SPM system")
-    userId = serializers.CharField(max_length=255, required=False, write_only=True)
+    userId = serializers.CharField(
+        max_length=255,
+        source="user_id",
+        help_text="User ID in SPM system"
+    )
     action = serializers.ChoiceField(
         choices=["create", "destroy"],
         help_text="Action to perform: 'create' or 'destroy'"
     )
 
-    def validate(self, attrs):
-        if attrs.get("user_id") is None and attrs.get("userId") is not None:
-            attrs["user_id"] = attrs["userId"]
-        if attrs.get("user_id") is None:
-            raise serializers.ValidationError({"user_id": ["Обязательное поле."]})
-        return attrs
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            data = data.copy()
+            if "userId" not in data and "user_id" in data:
+                data["userId"] = data["user_id"]
+        return super().to_internal_value(data)
 
 
 class SPMSessionResponseSerializer(serializers.Serializer):
@@ -200,11 +210,17 @@ class SPMRegisterUserSerializer(serializers.Serializer):
         max_length=255,
         help_text="User's full name"
     )
-    user_name = serializers.CharField(max_length=255, required=False, help_text="Unique username")
-    userName = serializers.CharField(max_length=255, required=False, write_only=True)
+    userName = serializers.CharField(
+        max_length=255,
+        source="user_name",
+        help_text="Unique username"
+    )
     email = serializers.CharField(max_length=255, help_text="User's email address")
-    country_code = serializers.CharField(max_length=10, required=False, help_text="Country code (e.g., '91', 'TM')")
-    countryCode = serializers.CharField(max_length=10, required=False, write_only=True)
+    countryCode = serializers.CharField(
+        max_length=10,
+        source="country_code",
+        help_text="Country code (e.g., '91', 'TM')"
+    )
     phone = serializers.IntegerField(
         help_text="Phone number as integer"
     )
@@ -213,16 +229,14 @@ class SPMRegisterUserSerializer(serializers.Serializer):
         help_text="User password (min 8 chars, must have capital & small letter, number, symbol)"
     )
 
-    def validate(self, attrs):
-        if attrs.get("user_name") is None and attrs.get("userName") is not None:
-            attrs["user_name"] = attrs["userName"]
-        if attrs.get("country_code") is None and attrs.get("countryCode") is not None:
-            attrs["country_code"] = attrs["countryCode"]
-        if attrs.get("user_name") is None:
-            raise serializers.ValidationError({"user_name": ["Обязательное поле."]})
-        if attrs.get("country_code") is None:
-            raise serializers.ValidationError({"country_code": ["Обязательное поле."]})
-        return attrs
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            data = data.copy()
+            if "userName" not in data and "user_name" in data:
+                data["userName"] = data["user_name"]
+            if "countryCode" not in data and "country_code" in data:
+                data["countryCode"] = data["country_code"]
+        return super().to_internal_value(data)
 
 
 class SPMRegisterUserResponseSerializer(serializers.Serializer):
