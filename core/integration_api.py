@@ -26,6 +26,16 @@ class IntegrationApiError(RuntimeError):
         self.status_code = status_code
 
 
+def generate_signature_from_string(data: str, private_key: str) -> str:
+    final_data = data.replace(" ", "")
+    signature_bytes = hmac.new(
+        private_key.encode("utf-8"),
+        final_data.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+    return base64.b64encode(signature_bytes).decode("utf-8")
+
+
 def generate_signature(payload: dict, private_key: str) -> str:
     """
     Generate HMAC SHA256 signature for the request payload.
@@ -39,19 +49,7 @@ def generate_signature(payload: dict, private_key: str) -> str:
     """
     # 1. Stringify the payload
     data = json.dumps(payload, separators=(',', ':'))
-    
-    # 2. Remove whitespace
-    final_data = data.replace(" ", "")
-    
-    # 3. Generate HMAC SHA256 signature
-    signature_bytes = hmac.new(
-        private_key.encode('utf-8'),
-        final_data.encode('utf-8'),
-        hashlib.sha256
-    ).digest()
-    
-    # 4. Base64 encode
-    return base64.b64encode(signature_bytes).decode('utf-8')
+    return generate_signature_from_string(data, private_key)
 
 
 class IntegrationClient:
@@ -90,13 +88,12 @@ class IntegrationClient:
         Raises:
             IntegrationApiError: If request fails
         """
-        full_url = f"{self.base_url}{endpoint}"
-        
-        # Generate signature
-        signature = generate_signature(payload, self.private_key)
-        
-        # Prepare request body
-        body = json.dumps(payload, separators=(',', ':')).encode("utf-8")
+        endpoint_path = endpoint if endpoint.startswith("/") else f"/{endpoint}"
+        full_url = f"{self.base_url}{endpoint_path}"
+
+        data = json.dumps(payload, separators=(",", ":"))
+        signature = generate_signature_from_string(data, self.private_key)
+        body = data.encode("utf-8")
         
         # Create request
         req = Request(

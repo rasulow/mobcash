@@ -1,6 +1,8 @@
 """
 ViewSet for Data Integration API endpoints
 """
+from datetime import timezone
+
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -14,6 +16,16 @@ from .integration_serializers import (
     IntegrationTransactionsRequestSerializer,
     IntegrationUsersRequestSerializer,
 )
+
+
+def _dt_to_z(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 class IntegrationViewSet(viewsets.GenericViewSet):
@@ -73,11 +85,11 @@ class IntegrationViewSet(viewsets.GenericViewSet):
         
         # Convert datetime objects to ISO format strings
         if start_date:
-            start_date = start_date.isoformat()
+            start_date = _dt_to_z(start_date)
         if end_date:
-            end_date = end_date.isoformat()
+            end_date = _dt_to_z(end_date)
         if last_updated:
-            last_updated = last_updated.isoformat()
+            last_updated = _dt_to_z(last_updated)
         
         try:
             # Call Integration API
@@ -174,11 +186,11 @@ class IntegrationViewSet(viewsets.GenericViewSet):
         
         # Convert datetime objects to ISO format strings
         if start_date:
-            start_date = start_date.isoformat()
+            start_date = _dt_to_z(start_date)
         if end_date:
-            end_date = end_date.isoformat()
+            end_date = _dt_to_z(end_date)
         if last_updated:
-            last_updated = last_updated.isoformat()
+            last_updated = _dt_to_z(last_updated)
         
         try:
             # Call Integration API

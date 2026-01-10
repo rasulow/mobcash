@@ -286,10 +286,10 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         country_code = serializer.validated_data["country_code"]
         phone = serializer.validated_data["phone"]
         remarks = serializer.validated_data.get("remarks", "")
-        
-        # Generate unique transaction ID
-        import uuid
-        txn_id = str(uuid.uuid4())
+        txn_id = serializer.validated_data.get("txn_id")
+        if not txn_id:
+            import uuid
+            txn_id = str(uuid.uuid4())
         
         try:
             # Call SPM API
@@ -302,15 +302,13 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 remarks=remarks
             )
             
-            # Return success response
-            response_data = {
-                "balance": balance,
-                "txn_id": txn_id,
-                "message": "Deposit successful"
-            }
             return Response(
-                SPMTransactionResponseSerializer(response_data).data,
-                status=status.HTTP_200_OK
+                {
+                    "error": None,
+                    "data": SPMTransactionResponseSerializer({"balance": balance}).data,
+                    "statusCode": 200,
+                },
+                status=status.HTTP_200_OK,
             )
             
         except SPMApiError as e:
@@ -319,7 +317,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": str(e),
                         "errorCode": e.error_code
-                    }
+                    },
+                    "data": None,
+                    "statusCode": e.status_code,
                 },
                 status=e.status_code
             )
@@ -329,7 +329,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": f"Internal error: {str(e)}",
                         "errorCode": "INTERNAL_ERROR"
-                    }
+                    },
+                    "data": None,
+                    "statusCode": 500,
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -361,10 +363,10 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         country_code = serializer.validated_data["country_code"]
         phone = serializer.validated_data["phone"]
         remarks = serializer.validated_data.get("remarks", "")
-        
-        # Generate unique transaction ID
-        import uuid
-        txn_id = str(uuid.uuid4())
+        txn_id = serializer.validated_data.get("txn_id")
+        if not txn_id:
+            import uuid
+            txn_id = str(uuid.uuid4())
         
         try:
             # Call SPM API
@@ -377,15 +379,13 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 remarks=remarks
             )
             
-            # Return success response
-            response_data = {
-                "balance": balance,
-                "txn_id": txn_id,
-                "message": "Withdrawal successful"
-            }
             return Response(
-                SPMTransactionResponseSerializer(response_data).data,
-                status=status.HTTP_200_OK
+                {
+                    "error": None,
+                    "data": SPMTransactionResponseSerializer({"balance": balance}).data,
+                    "statusCode": 200,
+                },
+                status=status.HTTP_200_OK,
             )
             
         except SPMApiError as e:
@@ -394,7 +394,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": str(e),
                         "errorCode": e.error_code
-                    }
+                    },
+                    "data": None,
+                    "statusCode": e.status_code,
                 },
                 status=e.status_code
             )
@@ -404,7 +406,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": f"Internal error: {str(e)}",
                         "errorCode": "INTERNAL_ERROR"
-                    }
+                    },
+                    "data": None,
+                    "statusCode": 500,
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -435,14 +439,13 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             spm_client = get_spm_client()
             balance = spm_client.get_deposit_status(txn_id=txn_id)
             
-            # Return success response
-            response_data = {
-                "balance": balance,
-                "txn_id": txn_id
-            }
             return Response(
-                SPMDepositStatusResponseSerializer(response_data).data,
-                status=status.HTTP_200_OK
+                {
+                    "error": None,
+                    "data": SPMDepositStatusResponseSerializer({"balance": balance}).data,
+                    "statusCode": 200,
+                },
+                status=status.HTTP_200_OK,
             )
             
         except SPMApiError as e:
@@ -451,7 +454,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": str(e),
                         "errorCode": e.error_code
-                    }
+                    },
+                    "data": None,
+                    "statusCode": e.status_code,
                 },
                 status=e.status_code
             )
@@ -461,7 +466,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": f"Internal error: {str(e)}",
                         "errorCode": "INTERNAL_ERROR"
-                    }
+                    },
+                    "data": None,
+                    "statusCode": 500,
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -498,10 +505,13 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 phone=phone
             )
             
-            # Return success response
             return Response(
-                SPMUserResponseSerializer(user_data).data,
-                status=status.HTTP_200_OK
+                {
+                    "error": None,
+                    "data": SPMUserResponseSerializer(user_data).data,
+                    "statusCode": 200,
+                },
+                status=status.HTTP_200_OK,
             )
             
         except SPMApiError as e:
@@ -510,7 +520,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": str(e),
                         "errorCode": e.error_code
-                    }
+                    },
+                    "data": None,
+                    "statusCode": e.status_code,
                 },
                 status=e.status_code
             )
@@ -520,7 +532,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": f"Internal error: {str(e)}",
                         "errorCode": "INTERNAL_ERROR"
-                    }
+                    },
+                    "data": None,
+                    "statusCode": 500,
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -556,14 +570,13 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 action=action
             )
             
-            # Return success response
-            response_data = {
-                "session": session_token,
-                "message": f"Session {action}d successfully"
-            }
             return Response(
-                SPMSessionResponseSerializer(response_data).data,
-                status=status.HTTP_200_OK
+                {
+                    "error": None,
+                    "data": SPMSessionResponseSerializer({"session": session_token}).data,
+                    "statusCode": 200,
+                },
+                status=status.HTTP_200_OK,
             )
             
         except SPMApiError as e:
@@ -572,7 +585,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": str(e),
                         "errorCode": e.error_code
-                    }
+                    },
+                    "data": None,
+                    "statusCode": e.status_code,
                 },
                 status=e.status_code
             )
@@ -582,7 +597,9 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     "error": {
                         "message": f"Internal error: {str(e)}",
                         "errorCode": "INTERNAL_ERROR"
-                    }
+                    },
+                    "data": None,
+                    "statusCode": 500,
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

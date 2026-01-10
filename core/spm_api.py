@@ -10,10 +10,12 @@ from typing import TypeVar, Generic
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-from Crypto.Random import get_random_bytes
 import base64
+import os
+
+from Crypto.Cipher import AES
+from Crypto.Hash import MD5
+from Crypto.Util.Padding import pad, unpad
 
 from django.conf import settings
 
@@ -50,31 +52,25 @@ def symmetric_encrypt(data: str, key: str) -> str:
     Returns:
         Base64 encoded encrypted string
     """
-    # CryptoJS uses a key derivation from the passphrase
-    # For compatibility, we'll use a simple approach with PKCS7 padding
-    key_bytes = key.encode('utf-8')
-    
-    # Ensure key is 32 bytes for AES-256
-    if len(key_bytes) < 32:
-        key_bytes = key_bytes.ljust(32, b'\0')
-    else:
-        key_bytes = key_bytes[:32]
-    
-    # Generate random IV
-    iv = get_random_bytes(16)
-    
-    # Create cipher
+    passphrase = key.encode("utf-8")
+
+    # OpenSSL-compatible format used by CryptoJS.AES.encrypt(passphrase)
+    # base64( b"Salted__" + salt(8) + ciphertext )
+    salt = os.urandom(8)
+
+    d = b""
+    last = b""
+    while len(d) < 48:  # 32 bytes key + 16 bytes iv
+        last = MD5.new(last + passphrase + salt).digest()
+        d += last
+    key_bytes = d[:32]
+    iv = d[32:48]
+
     cipher = AES.new(key_bytes, AES.MODE_CBC, iv)
-    
-    # Pad and encrypt
-    data_bytes = data.encode('utf-8')
-    padded_data = pad(data_bytes, AES.block_size)
-    encrypted = cipher.encrypt(padded_data)
-    
-    # Combine IV and encrypted data, then base64 encode
-    # Format: base64(iv + encrypted_data)
-    combined = iv + encrypted
-    return base64.b64encode(combined).decode('utf-8')
+    ct = cipher.encrypt(pad(data.encode("utf-8"), AES.block_size))
+
+    openssl_blob = b"Salted__" + salt + ct
+    return base64.b64encode(openssl_blob).decode("utf-8")
 
 
 def symmetric_decrypt(encrypted_data: str, key: str) -> str:
@@ -88,28 +84,26 @@ def symmetric_decrypt(encrypted_data: str, key: str) -> str:
     Returns:
         Decrypted string
     """
-    key_bytes = key.encode('utf-8')
-    
-    # Ensure key is 32 bytes for AES-256
-    if len(key_bytes) < 32:
-        key_bytes = key_bytes.ljust(32, b'\0')
-    else:
-        key_bytes = key_bytes[:32]
-    
-    # Decode base64
+    passphrase = key.encode("utf-8")
+
     combined = base64.b64decode(encrypted_data)
-    
-    # Extract IV and encrypted data
-    iv = combined[:16]
-    encrypted = combined[16:]
-    
-    # Create cipher and decrypt
+    if len(combined) < 16 or combined[:8] != b"Salted__":
+        raise ValueError("Invalid encrypted data format")
+
+    salt = combined[8:16]
+    ciphertext = combined[16:]
+
+    d = b""
+    last = b""
+    while len(d) < 48:
+        last = MD5.new(last + passphrase + salt).digest()
+        d += last
+    key_bytes = d[:32]
+    iv = d[32:48]
+
     cipher = AES.new(key_bytes, AES.MODE_CBC, iv)
-    decrypted_padded = cipher.decrypt(encrypted)
-    
-    # Unpad
-    decrypted = unpad(decrypted_padded, AES.block_size)
-    return decrypted.decode('utf-8')
+    decrypted_padded = cipher.decrypt(ciphertext)
+    return unpad(decrypted_padded, AES.block_size).decode("utf-8")
 
 
 class SPMClient:
@@ -152,7 +146,7 @@ class SPMClient:
         
         # Encrypt payload
         encrypted_payload = symmetric_encrypt(
-            json.dumps(payload),
+            json.dumps(payload, separators=(",", ":")),
             self.secret_key
         )
         
@@ -377,8 +371,8 @@ class SPMClient:
         
         return {
             "balance": Decimal(str(data.get("balance", 0))),
-            "user_name": data.get("userName", ""),
-            "is_active": data.get("isActive", False),
+            "userName": data.get("userName", ""),
+            "isActive": data.get("isActive", False),
         }
     
     def register_user(
@@ -431,8 +425,8 @@ class SPMClient:
         data = response.get("data", {})
         
         return {
-            "user_id": data.get("userId"),
-            "user_name": data.get("userName"),
+            "userId": data.get("userId"),
+            "userName": data.get("userName"),
             "name": data.get("name"),
         }
     
