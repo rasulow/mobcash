@@ -7,6 +7,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from core.external_api import ExternalApiError, fetch_yildiztop_users_by_referral_token, post_yildiztop_update_balance
@@ -257,6 +258,8 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
     - POST /api/spm/deposit/ - Deposit to SPM user
     - POST /api/spm/withdraw/ - Withdraw from SPM user
     """
+    permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = SPMTransactionSerializer
 
     def get_serializer_class(self):

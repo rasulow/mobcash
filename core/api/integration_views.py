@@ -37,6 +37,7 @@ class IntegrationViewSet(viewsets.GenericViewSet):
     - POST /api/integration/txns/ - Get transactions by type and date range
     """
     permission_classes = [AllowAny]
+    authentication_classes = []
     serializer_class = IntegrationUsersRequestSerializer
 
     def get_serializer_class(self):
