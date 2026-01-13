@@ -1,6 +1,11 @@
 from decimal import Decimal
 
+import secrets
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.core.mail import send_mail
 from django.db import transaction as db_transaction
 from django.db.models import F
 from drf_yasg import openapi
@@ -26,6 +31,8 @@ from .serializers import (
     SPMTransactionResponseSerializer,
     SPMTransactionSerializer,
     SPMUserResponseSerializer,
+    SPMWithdrawSendCodeSerializer,
+    SPMWithdrawSerializer,
     TransactionCreateSerializer,
     TransactionSerializer,
     WalletSerializer,
@@ -267,11 +274,15 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             return SPMDepositStatusSerializer
         if getattr(self, "action", None) == "get_user_by_userid":
             return SPMGetUserByUserIdSerializer
+        if getattr(self, "action", None) == "withdraw_send_code":
+            return SPMWithdrawSendCodeSerializer
         if getattr(self, "action", None) == "manage_session":
             return SPMSessionSerializer
         if getattr(self, "action", None) == "register_user":
             return SPMRegisterUserSerializer
-        if getattr(self, "action", None) in {"deposit", "withdraw"}:
+        if getattr(self, "action", None) == "withdraw":
+            return SPMWithdrawSerializer
+        if getattr(self, "action", None) == "deposit":
             return SPMTransactionSerializer
         return super().get_serializer_class()
     
@@ -350,8 +361,89 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @swagger_auto_schema(method="post", request_body=SPMWithdrawSendCodeSerializer)
+    @action(detail=False, methods=["post"], url_path="withdraw/send-code")
+    def withdraw_send_code(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user_id = serializer.validated_data["user_id"]
+        txn_id = serializer.validated_data["txn_id"]
+
+        try:
+            spm_client = get_spm_client()
+            user_data = spm_client.get_user_by_userid(user_id=user_id)
+
+            email = None
+            if isinstance(user_data, dict):
+                for k, v in user_data.items():
+                    if isinstance(k, str) and k.lower() == "email":
+                        email = v
+                        break
+            email = (str(email).strip() if email else "")
+            if not email:
+                return Response(
+                    {
+                        "error": {
+                            "message": "Email not found for this user.",
+                            "errorCode": "EMAIL_NOT_FOUND",
+                        },
+                        "data": None,
+                        "statusCode": 400,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            code = f"{secrets.randbelow(1000000):06d}"
+            ttl = 60 * 5
+            cache_key = f"spm_withdraw_code_v1:{user_id}:{txn_id}"
+            cache.set(cache_key, {"code": code, "attempts": 0, "ttl": ttl}, timeout=ttl)
+
+            from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "")
+            if not from_email:
+                from_email = "no-reply@mobcash.local"
+
+            send_mail(
+                subject="Withdrawal confirmation code",
+                message=f"Your withdrawal confirmation code is: {code}",
+                from_email=from_email,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+
+            return Response(
+                {
+                    "error": None,
+                    "data": {"sent": True, "expiresIn": ttl},
+                    "statusCode": 200,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except SPMApiError as e:
+            return Response(
+                {
+                    "error": {"message": str(e), "errorCode": e.error_code},
+                    "data": None,
+                    "statusCode": e.status_code,
+                },
+                status=e.status_code,
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "error": {
+                        "message": f"Internal error: {str(e)}",
+                        "errorCode": "INTERNAL_ERROR",
+                    },
+                    "data": None,
+                    "statusCode": 500,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
     
-    @swagger_auto_schema(method="post", request_body=SPMTransactionSerializer)
+    @swagger_auto_schema(method="post", request_body=SPMWithdrawSerializer)
     @action(detail=False, methods=["post"], url_path="withdraw")
     def withdraw(self, request):
         """
@@ -379,9 +471,44 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         user_id = serializer.validated_data["user_id"]
         remarks = serializer.validated_data.get("remarks", "")
         txn_id = serializer.validated_data.get("txn_id")
+        confirmation_code = serializer.validated_data.get("confirmation_code")
         if not txn_id:
             import uuid
             txn_id = str(uuid.uuid4())
+
+        cache_key = f"spm_withdraw_code_v1:{user_id}:{txn_id}"
+        cached = cache.get(cache_key)
+        if not isinstance(cached, dict) or "code" not in cached:
+            return Response(
+                {
+                    "error": {
+                        "message": "Confirmation code expired or not requested.",
+                        "errorCode": "CONFIRMATION_CODE_EXPIRED",
+                    },
+                    "data": None,
+                    "statusCode": 400,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        expected_code = str(cached.get("code", ""))
+        attempts = int(cached.get("attempts", 0) or 0)
+        if str(confirmation_code or "") != expected_code:
+            attempts += 1
+            cached["attempts"] = attempts
+            cache.set(cache_key, cached, timeout=int(cached.get("ttl", 300) or 300))
+            if attempts >= 5:
+                cache.delete(cache_key)
+            return Response(
+                {
+                    "error": {
+                        "message": "Invalid confirmation code.",
+                        "errorCode": "CONFIRMATION_CODE_INVALID",
+                    },
+                    "data": None,
+                    "statusCode": 400,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         
         try:
             # Call SPM API

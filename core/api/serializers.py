@@ -105,6 +105,42 @@ class SPMTransactionSerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
 
+class SPMWithdrawSerializer(SPMTransactionSerializer):
+    confirmationCode = serializers.CharField(
+        max_length=32,
+        source="confirmation_code",
+        help_text="Confirmation code sent to the user's email"
+    )
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            data = data.copy()
+            if "confirmationCode" not in data and "confirmation_code" in data:
+                data["confirmationCode"] = data["confirmation_code"]
+        return super().to_internal_value(data)
+
+
+class SPMWithdrawSendCodeSerializer(serializers.Serializer):
+    userId = serializers.IntegerField(
+        source="user_id",
+        help_text="User ID in SPM system"
+    )
+    txnId = serializers.CharField(
+        max_length=255,
+        source="txn_id",
+        help_text="Transaction ID"
+    )
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            data = data.copy()
+            if "userId" not in data and "user_id" in data:
+                data["userId"] = data["user_id"]
+            if "txnId" not in data and "txn_id" in data:
+                data["txnId"] = data["txn_id"]
+        return super().to_internal_value(data)
+
+
 class SPMTransactionResponseSerializer(serializers.Serializer):
     """Serializer for SPM transaction response"""
     balance = serializers.DecimalField(
