@@ -519,7 +519,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             return Response(
                 {
                     "error": None,
-                    "data": SPMUserResponseSerializer(user_data).data,
+                    "data": user_data,
                     "statusCode": 200,
                 },
                 status=status.HTTP_200_OK,

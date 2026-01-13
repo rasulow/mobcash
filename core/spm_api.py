@@ -402,11 +402,7 @@ class SPMClient:
         # Extract user data
         data = response.get("data", {})
 
-        return {
-            "balance": Decimal(str(data.get("balance", 0))),
-            "userName": data.get("userName", ""),
-            "isActive": data.get("isActive", False),
-        }
+        return data
     
     def register_user(
         self,
