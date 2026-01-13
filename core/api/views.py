@@ -404,13 +404,27 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             if not from_email:
                 from_email = "no-reply@mobcash.local"
 
-            send_mail(
-                subject="Withdrawal confirmation code",
-                message=f"Your withdrawal confirmation code is: {code}",
-                from_email=from_email,
-                recipient_list=[email],
-                fail_silently=False,
-            )
+            try:
+                send_mail(
+                    subject="Withdrawal confirmation code",
+                    message=f"Your withdrawal confirmation code is: {code}",
+                    from_email=from_email,
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                cache.delete(cache_key)
+                return Response(
+                    {
+                        "error": {
+                            "message": f"Failed to send email: {str(e)}",
+                            "errorCode": "EMAIL_SEND_FAILED",
+                        },
+                        "data": None,
+                        "statusCode": 502,
+                    },
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
 
             return Response(
                 {
