@@ -18,7 +18,7 @@ from .permissions import IsMainCashier
 from .serializers import (
     SPMDepositStatusResponseSerializer,
     SPMDepositStatusSerializer,
-    SPMGetUserByPhoneSerializer,
+    SPMGetUserByUserIdSerializer,
     SPMRegisterUserResponseSerializer,
     SPMRegisterUserSerializer,
     SPMSessionResponseSerializer,
@@ -265,8 +265,8 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
     def get_serializer_class(self):
         if getattr(self, "action", None) == "get_deposit_status":
             return SPMDepositStatusSerializer
-        if getattr(self, "action", None) == "get_user_by_phone":
-            return SPMGetUserByPhoneSerializer
+        if getattr(self, "action", None) == "get_user_by_userid":
+            return SPMGetUserByUserIdSerializer
         if getattr(self, "action", None) == "manage_session":
             return SPMSessionSerializer
         if getattr(self, "action", None) == "register_user":
@@ -488,16 +488,15 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    @swagger_auto_schema(method="post", request_body=SPMGetUserByPhoneSerializer)
-    @action(detail=False, methods=["post"], url_path="get-by-phone")
-    def get_user_by_phone(self, request):
+    @swagger_auto_schema(method="post", request_body=SPMGetUserByUserIdSerializer)
+    @action(detail=False, methods=["post"], url_path="get-by-userid")
+    def get_user_by_userid(self, request):
         """
-        Get user details by phone number.
+        Get user details by user ID.
         
         Request body:
         {
-            "country_code": "TM",
-            "phone": "+99365123456"
+            "user_id": "user123"
         }
         
         Response:
@@ -510,16 +509,12 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        country_code = serializer.validated_data["country_code"]
-        phone = serializer.validated_data["phone"]
+        user_id = serializer.validated_data["user_id"]
         
         try:
             # Call SPM API
             spm_client = get_spm_client()
-            user_data = spm_client.get_user_by_phone(
-                country_code=country_code,
-                phone=phone
-            )
+            user_data = spm_client.get_user_by_userid(user_id=user_id)
             
             return Response(
                 {

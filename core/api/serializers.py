@@ -158,6 +158,21 @@ class SPMGetUserByPhoneSerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
 
+class SPMGetUserByUserIdSerializer(serializers.Serializer):
+    """Serializer for getting user by userId"""
+    userId = serializers.IntegerField(
+        source="user_id",
+        help_text="User ID in SPM system"
+    )
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            data = data.copy()
+            if "userId" not in data and "user_id" in data:
+                data["userId"] = data["user_id"]
+        return super().to_internal_value(data)
+
+
 class SPMUserResponseSerializer(serializers.Serializer):
     """Serializer for user details response"""
     balance = serializers.DecimalField(

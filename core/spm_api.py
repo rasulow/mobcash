@@ -370,6 +370,43 @@ class SPMClient:
             "userName": data.get("userName", ""),
             "isActive": data.get("isActive", False),
         }
+
+    def get_user_by_userid(self, user_id: int) -> dict:
+        """
+        Get user details by userId.
+
+        Args:
+            user_id: User ID in SPM system
+
+        Returns:
+            Dictionary with user details: {balance, userName, isActive}
+
+        Raises:
+            SPMApiError: If user lookup fails
+        """
+        payload = {
+            "userId": user_id,
+        }
+
+        response = self._make_request("/user/get-by-userid", payload)
+
+        # Check for errors
+        if response.get("error"):
+            error = response["error"]
+            raise SPMApiError(
+                error.get("message", "User lookup failed"),
+                error.get("errorCode", "USER_LOOKUP_ERROR"),
+                response.get("statusCode", 400)
+            )
+
+        # Extract user data
+        data = response.get("data", {})
+
+        return {
+            "balance": Decimal(str(data.get("balance", 0))),
+            "userName": data.get("userName", ""),
+            "isActive": data.get("isActive", False),
+        }
     
     def register_user(
         self,
