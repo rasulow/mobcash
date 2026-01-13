@@ -79,19 +79,13 @@ class SPMTransactionSerializer(serializers.Serializer):
         min_value=Decimal("0.01"),
         help_text="Amount in SPM currency"
     )
-    countryCode = serializers.CharField(
-        max_length=2,
-        source="country_code",
-        help_text="Country code (e.g., TM, UZ)"
-    )
-    phone = serializers.CharField(
-        max_length=20,
-        help_text="User's phone number"
+    userId = serializers.IntegerField(
+        source="user_id",
+        help_text="User ID in SPM system"
     )
     txnId = serializers.CharField(
         max_length=255,
         source="txn_id",
-        required=False,
         help_text="Transaction ID"
     )
     remarks = serializers.CharField(
@@ -104,8 +98,8 @@ class SPMTransactionSerializer(serializers.Serializer):
     def to_internal_value(self, data):
         if isinstance(data, Mapping):
             data = data.copy()
-            if "countryCode" not in data and "country_code" in data:
-                data["countryCode"] = data["country_code"]
+            if "userId" not in data and "user_id" in data:
+                data["userId"] = data["user_id"]
             if "txnId" not in data and "txn_id" in data:
                 data["txnId"] = data["txn_id"]
         return super().to_internal_value(data)

@@ -198,8 +198,7 @@ class SPMClient:
     def deposit(
         self,
         amount: Decimal,
-        country_code: str,
-        phone: str,
+        user_id: int,
         txn_id: str,
         remarks: str = ""
     ) -> Decimal:
@@ -221,8 +220,7 @@ class SPMClient:
         """
         payload = {
             "amount": float(amount),
-            "countryCode": country_code,
-            "phone": phone,
+            "userId": user_id,
             "txnId": txn_id,
             "remarks": remarks or f"Deposit {txn_id}",
         }
@@ -250,8 +248,7 @@ class SPMClient:
     def withdraw(
         self,
         amount: Decimal,
-        country_code: str,
-        phone: str,
+        user_id: int,
         txn_id: str,
         remarks: str = ""
     ) -> Decimal:
@@ -273,8 +270,7 @@ class SPMClient:
         """
         payload = {
             "amount": float(amount),
-            "countryCode": country_code,
-            "phone": phone,
+            "userId": user_id,
             "txnId": txn_id,
             "remarks": remarks or f"Withdraw {txn_id}",
         }

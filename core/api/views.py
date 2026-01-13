@@ -297,8 +297,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         
         amount = serializer.validated_data["amount"]
-        country_code = serializer.validated_data["country_code"]
-        phone = serializer.validated_data["phone"]
+        user_id = serializer.validated_data["user_id"]
         remarks = serializer.validated_data.get("remarks", "")
         txn_id = serializer.validated_data.get("txn_id")
         if not txn_id:
@@ -310,8 +309,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             spm_client = get_spm_client()
             balance = spm_client.deposit(
                 amount=amount,
-                country_code=country_code,
-                phone=phone,
+                user_id=user_id,
                 txn_id=txn_id,
                 remarks=remarks
             )
@@ -375,8 +373,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         
         amount = serializer.validated_data["amount"]
-        country_code = serializer.validated_data["country_code"]
-        phone = serializer.validated_data["phone"]
+        user_id = serializer.validated_data["user_id"]
         remarks = serializer.validated_data.get("remarks", "")
         txn_id = serializer.validated_data.get("txn_id")
         if not txn_id:
@@ -388,8 +385,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             spm_client = get_spm_client()
             balance = spm_client.withdraw(
                 amount=amount,
-                country_code=country_code,
-                phone=phone,
+                user_id=user_id,
                 txn_id=txn_id,
                 remarks=remarks
             )
