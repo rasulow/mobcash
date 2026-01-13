@@ -426,10 +426,13 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
+            resp_data = {"sent": True, "expiresIn": ttl, "email": email}
+            if getattr(settings, "DEBUG", False) or getattr(settings, "SPM_WITHDRAW_RETURN_CODE", False):
+                resp_data["confirmationCode"] = code
             return Response(
                 {
                     "error": None,
-                    "data": {"sent": True, "expiresIn": ttl},
+                    "data": resp_data,
                     "statusCode": 200,
                 },
                 status=status.HTTP_200_OK,

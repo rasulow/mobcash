@@ -234,6 +234,7 @@ YILDIZTOP_API_BASE = os.environ.get("YILDIZTOP_API_BASE", "https://yildiztop.com
 SPM_API_BASE = os.environ.get("SPM_API_BASE", "https://ext.sportsmanager.app")
 SPM_PUBLIC_KEY = os.environ.get("SPM_PUBLIC_KEY", "")
 SPM_SECRET_KEY = os.environ.get("SPM_SECRET_KEY", "")
+SPM_WITHDRAW_RETURN_CODE = os.environ.get("SPM_WITHDRAW_RETURN_CODE", "0") == "1"
 
 # Data Integration API
 INTEGRATION_API_BASE = os.environ.get("INTEGRATION_API_BASE", "https://dataint.sportsmanager.app/integration")
