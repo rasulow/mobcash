@@ -1,6 +1,10 @@
+import uuid
+
 from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
 from django.db.models import DecimalField
+from django.utils import timezone
 
 
 class Wallet(models.Model):
@@ -116,4 +120,36 @@ class WalletTransfer(models.Model):
 
     def __str__(self) -> str:
         return f"{self.from_wallet.user} -> {self.to_wallet.user}: {self.amount}"
+
+
+class SPMWithdrawConfirmation(models.Model):
+    user_id = models.PositiveIntegerField(db_index=True)
+    txn_id = models.UUIDField(unique=True, db_index=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField()
+    code_hash = models.CharField(max_length=128)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    max_attempts = models.PositiveSmallIntegerField(default=5)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def set_code(self, code: str) -> None:
+        self.code_hash = make_password(str(code or ""))
+
+    def check_code(self, code: str) -> bool:
+        return check_password(str(code or ""), self.code_hash or "")
+
+    def is_expired(self) -> bool:
+        return timezone.now() >= self.expires_at
+
+    def mark_used(self) -> None:
+        self.is_used = True
+        self.used_at = timezone.now()
+
+    def __str__(self) -> str:
+        return f"SPMWithdrawConfirmation user_id={self.user_id} txn_id={self.txn_id}"
 

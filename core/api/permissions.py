@@ -27,3 +27,15 @@ class IsSuperAdminOrMainCashier(BasePermission):
         return bool(u.is_superuser or u.groups.filter(name="main_cashier").exists())
 
 
+class IsSuperAdminOrMainCashierOrCashier(BasePermission):
+    message = "Требуется роль superadmin, main_cashier или cashier."
+
+    def has_permission(self, request, view) -> bool:
+        u = getattr(request, "user", None)
+        if not u or not u.is_authenticated:
+            return False
+        if u.is_superuser:
+            return True
+        return bool(u.groups.filter(name__in=["main_cashier", "cashier"]).exists())
+
+

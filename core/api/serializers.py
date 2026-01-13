@@ -86,6 +86,8 @@ class SPMTransactionSerializer(serializers.Serializer):
     txnId = serializers.CharField(
         max_length=255,
         source="txn_id",
+        required=False,
+        allow_blank=True,
         help_text="Transaction ID"
     )
     remarks = serializers.CharField(
@@ -106,6 +108,11 @@ class SPMTransactionSerializer(serializers.Serializer):
 
 
 class SPMWithdrawSerializer(SPMTransactionSerializer):
+    txnId = serializers.CharField(
+        max_length=255,
+        source="txn_id",
+        help_text="Transaction ID"
+    )
     confirmationCode = serializers.CharField(
         max_length=32,
         source="confirmation_code",
@@ -125,19 +132,12 @@ class SPMWithdrawSendCodeSerializer(serializers.Serializer):
         source="user_id",
         help_text="User ID in SPM system"
     )
-    txnId = serializers.CharField(
-        max_length=255,
-        source="txn_id",
-        help_text="Transaction ID"
-    )
 
     def to_internal_value(self, data):
         if isinstance(data, Mapping):
             data = data.copy()
             if "userId" not in data and "user_id" in data:
                 data["userId"] = data["user_id"]
-            if "txnId" not in data and "txn_id" in data:
-                data["txnId"] = data["txn_id"]
         return super().to_internal_value(data)
 
 
@@ -147,6 +147,11 @@ class SPMTransactionResponseSerializer(serializers.Serializer):
         max_digits=12,
         decimal_places=2,
         help_text="Updated balance after transaction"
+    )
+    txnId = serializers.CharField(
+        max_length=255,
+        source="txn_id",
+        help_text="Transaction ID"
     )
     
 

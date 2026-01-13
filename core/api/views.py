@@ -1,13 +1,15 @@
+from datetime import timedelta
 from decimal import Decimal
 
 import secrets
+import uuid
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import transaction as db_transaction
 from django.db.models import F
+from django.utils import timezone
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import mixins, status, viewsets
@@ -16,10 +18,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from core.external_api import ExternalApiError, fetch_yildiztop_users_by_referral_token, post_yildiztop_update_balance
-from core.models import Transaction, Wallet, WalletTransfer
+from core.models import SPMWithdrawConfirmation, Transaction, Wallet, WalletTransfer
 from core.spm_api import get_spm_client, SPMApiError
 
-from .permissions import IsMainCashier
+from .permissions import IsMainCashier, IsSuperAdminOrMainCashierOrCashier
 from .serializers import (
     SPMDepositStatusResponseSerializer,
     SPMDepositStatusSerializer,
@@ -266,8 +268,12 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
     - POST /api/spm/withdraw/ - Withdraw from SPM user
     """
     permission_classes = [AllowAny]
-    authentication_classes = []
     serializer_class = SPMTransactionSerializer
+
+    def get_permissions(self):
+        if getattr(self, "action", None) in {"deposit", "withdraw_send_code", "withdraw"}:
+            return [IsSuperAdminOrMainCashierOrCashier()]
+        return [AllowAny()]
 
     def get_serializer_class(self):
         if getattr(self, "action", None) == "get_deposit_status":
@@ -313,10 +319,24 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         amount = serializer.validated_data["amount"]
         user_id = serializer.validated_data["user_id"]
         remarks = serializer.validated_data.get("remarks", "")
-        txn_id = serializer.validated_data.get("txn_id")
-        if not txn_id:
-            import uuid
-            txn_id = str(uuid.uuid4())
+        txn_id = str(uuid.uuid4())
+
+        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+        with db_transaction.atomic():
+            wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
+            if wallet.balance < amount:
+                return Response(
+                    {
+                        "error": {
+                            "message": f"Недостаточно средств: баланс {wallet.balance}, нужно {amount}.",
+                            "errorCode": "INSUFFICIENT_FUNDS",
+                        },
+                        "data": None,
+                        "statusCode": 400,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            Wallet.objects.filter(pk=wallet.pk).update(balance=F("balance") - amount)
         
         try:
             # Call SPM API
@@ -331,13 +351,15 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             return Response(
                 {
                     "error": None,
-                    "data": SPMTransactionResponseSerializer({"balance": balance}).data,
+                    "data": SPMTransactionResponseSerializer({"balance": balance, "txn_id": txn_id}).data,
                     "statusCode": 200,
                 },
                 status=status.HTTP_200_OK,
             )
             
         except SPMApiError as e:
+            with db_transaction.atomic():
+                Wallet.objects.filter(pk=wallet.pk).update(balance=F("balance") + amount)
             return Response(
                 {
                     "error": {
@@ -350,6 +372,8 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 status=e.status_code
             )
         except Exception as e:
+            with db_transaction.atomic():
+                Wallet.objects.filter(pk=wallet.pk).update(balance=F("balance") + amount)
             return Response(
                 {
                     "error": {
@@ -369,7 +393,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
 
         user_id = serializer.validated_data["user_id"]
-        txn_id = serializer.validated_data["txn_id"]
+        ttl = 60 * 5
 
         try:
             spm_client = get_spm_client()
@@ -396,9 +420,10 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 )
 
             code = f"{secrets.randbelow(1000000):06d}"
-            ttl = 60 * 5
-            cache_key = f"spm_withdraw_code_v1:{user_id}:{txn_id}"
-            cache.set(cache_key, {"code": code, "attempts": 0, "ttl": ttl}, timeout=ttl)
+            expires_at = timezone.now() + timedelta(seconds=ttl)
+            conf = SPMWithdrawConfirmation(user_id=user_id, email=email, expires_at=expires_at)
+            conf.set_code(code)
+            conf.save()
 
             from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "") or getattr(settings, "EMAIL_HOST_USER", "")
             if not from_email:
@@ -413,7 +438,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     fail_silently=False,
                 )
             except Exception as e:
-                cache.delete(cache_key)
+                conf.delete()
                 return Response(
                     {
                         "error": {
@@ -426,7 +451,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
-            resp_data = {"sent": True, "expiresIn": ttl, "email": email}
+            resp_data = {"sent": True, "expiresIn": ttl, "email": email, "txnId": str(conf.txn_id)}
             if getattr(settings, "DEBUG", False) or getattr(settings, "SPM_WITHDRAW_RETURN_CODE", False):
                 resp_data["confirmationCode"] = code
             return Response(
@@ -489,43 +514,74 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         remarks = serializer.validated_data.get("remarks", "")
         txn_id = serializer.validated_data.get("txn_id")
         confirmation_code = serializer.validated_data.get("confirmation_code")
-        if not txn_id:
-            import uuid
-            txn_id = str(uuid.uuid4())
 
-        cache_key = f"spm_withdraw_code_v1:{user_id}:{txn_id}"
-        cached = cache.get(cache_key)
-        if not isinstance(cached, dict) or "code" not in cached:
+        try:
+            txn_uuid = uuid.UUID(str(txn_id))
+        except Exception:
             return Response(
                 {
                     "error": {
-                        "message": "Confirmation code expired or not requested.",
-                        "errorCode": "CONFIRMATION_CODE_EXPIRED",
+                        "message": "Invalid txnId format.",
+                        "errorCode": "TXN_ID_INVALID",
                     },
                     "data": None,
                     "statusCode": 400,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        expected_code = str(cached.get("code", ""))
-        attempts = int(cached.get("attempts", 0) or 0)
-        if str(confirmation_code or "") != expected_code:
-            attempts += 1
-            cached["attempts"] = attempts
-            cache.set(cache_key, cached, timeout=int(cached.get("ttl", 300) or 300))
-            if attempts >= 5:
-                cache.delete(cache_key)
-            return Response(
-                {
-                    "error": {
-                        "message": "Invalid confirmation code.",
-                        "errorCode": "CONFIRMATION_CODE_INVALID",
-                    },
-                    "data": None,
-                    "statusCode": 400,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+
+        with db_transaction.atomic():
+            conf = (
+                SPMWithdrawConfirmation.objects.select_for_update()
+                .filter(txn_id=txn_uuid, user_id=user_id)
+                .first()
             )
+            if not conf or conf.is_used or conf.is_expired():
+                return Response(
+                    {
+                        "error": {
+                            "message": "Confirmation code expired or not requested.",
+                            "errorCode": "CONFIRMATION_CODE_EXPIRED",
+                        },
+                        "data": None,
+                        "statusCode": 400,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if conf.attempts >= conf.max_attempts:
+                conf.mark_used()
+                conf.save(update_fields=["is_used", "used_at"])
+                return Response(
+                    {
+                        "error": {
+                            "message": "Too many attempts.",
+                            "errorCode": "CONFIRMATION_CODE_TOO_MANY_ATTEMPTS",
+                        },
+                        "data": None,
+                        "statusCode": 400,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not conf.check_code(str(confirmation_code or "")):
+                conf.attempts = conf.attempts + 1
+                if conf.attempts >= conf.max_attempts:
+                    conf.mark_used()
+                    conf.save(update_fields=["attempts", "is_used", "used_at"])
+                else:
+                    conf.save(update_fields=["attempts"])
+                return Response(
+                    {
+                        "error": {
+                            "message": "Invalid confirmation code.",
+                            "errorCode": "CONFIRMATION_CODE_INVALID",
+                        },
+                        "data": None,
+                        "statusCode": 400,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         
         try:
             # Call SPM API
@@ -533,14 +589,20 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
             balance = spm_client.withdraw(
                 amount=amount,
                 user_id=user_id,
-                txn_id=txn_id,
+                txn_id=str(txn_uuid),
                 remarks=remarks
             )
+
+            wallet, _ = Wallet.objects.get_or_create(user=request.user)
+            with db_transaction.atomic():
+                wallet = Wallet.objects.select_for_update().get(pk=wallet.pk)
+                Wallet.objects.filter(pk=wallet.pk).update(balance=F("balance") + amount)
+                SPMWithdrawConfirmation.objects.filter(pk=conf.pk).update(is_used=True, used_at=timezone.now())
             
             return Response(
                 {
                     "error": None,
-                    "data": SPMTransactionResponseSerializer({"balance": balance}).data,
+                    "data": SPMTransactionResponseSerializer({"balance": balance, "txn_id": str(txn_uuid)}).data,
                     "statusCode": 200,
                 },
                 status=status.HTTP_200_OK,
