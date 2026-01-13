@@ -13,6 +13,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, allow_blank=False)
     groups = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), many=True, required=False)
     wallet = serializers.SerializerMethodField()
+    roles = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -25,6 +26,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "is_active",
             "is_staff",
             "is_superuser",
+            "roles",
             "groups",
             "wallet",
             "password",
@@ -37,6 +39,12 @@ class AdminUserSerializer(serializers.ModelSerializer):
         except Wallet.DoesNotExist:
             return None
         return AdminWalletSerializer(wallet).data
+
+    def get_roles(self, obj):
+        roles = [g.name for g in obj.groups.all()]
+        if getattr(obj, "is_superuser", False) and "superadmin" not in roles:
+            roles.append("superadmin")
+        return sorted(set(roles))
 
     def create(self, validated_data):
         password = validated_data.pop("password", None)
