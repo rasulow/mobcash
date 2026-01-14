@@ -9,4 +9,4 @@ echo "Apply database migrations"
 python manage.py migrate
 
 # Run server
-gunicorn config.wsgi:application --bind 127.0.0.1:8000 --log-level debug --workers=8
+gunicorn config.wsgi:application --bind 0.0.0.0:8000 --log-level debug --workers=8
