@@ -33,6 +33,13 @@ class AdminUserViewSet(viewsets.ModelViewSet):
     serializer_class = AdminUserSerializer
     permission_classes = [IsSuperAdmin]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        u = getattr(self.request, "user", None)
+        if u and u.is_authenticated and not u.is_superuser:
+            return qs.filter(is_superuser=False, groups__name="cashier").distinct()
+        return qs
+
     def get_permissions(self):
         """
         superadmin: full access
