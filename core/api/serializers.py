@@ -79,9 +79,16 @@ class SPMTransactionSerializer(serializers.Serializer):
         min_value=Decimal("0.01"),
         help_text="Amount in SPM currency"
     )
+    userName = serializers.CharField(
+        source="user_name",
+        required=False,
+        allow_blank=False,
+        help_text="Username in SPM system"
+    )
     userId = serializers.IntegerField(
         source="user_id",
-        help_text="User ID in SPM system"
+        required=False,
+        help_text="User ID in SPM system (legacy)"
     )
     txnId = serializers.CharField(
         max_length=255,
@@ -97,9 +104,16 @@ class SPMTransactionSerializer(serializers.Serializer):
         help_text="Optional transaction remarks"
     )
 
+    def validate(self, attrs):
+        if not attrs.get("user_name") and attrs.get("user_id") is None:
+            raise serializers.ValidationError({"userName": ["Обязательное поле."]})
+        return attrs
+
     def to_internal_value(self, data):
         if isinstance(data, Mapping):
             data = data.copy()
+            if "userName" not in data and "user_name" in data:
+                data["userName"] = data["user_name"]
             if "userId" not in data and "user_id" in data:
                 data["userId"] = data["user_id"]
             if "txnId" not in data and "txn_id" in data:
@@ -128,14 +142,28 @@ class SPMWithdrawSerializer(SPMTransactionSerializer):
 
 
 class SPMWithdrawSendCodeSerializer(serializers.Serializer):
+    userName = serializers.CharField(
+        source="user_name",
+        required=False,
+        allow_blank=False,
+        help_text="Username in SPM system"
+    )
     userId = serializers.IntegerField(
         source="user_id",
-        help_text="User ID in SPM system"
+        required=False,
+        help_text="User ID in SPM system (legacy)"
     )
+
+    def validate(self, attrs):
+        if not attrs.get("user_name") and attrs.get("user_id") is None:
+            raise serializers.ValidationError({"userName": ["Обязательное поле."]})
+        return attrs
 
     def to_internal_value(self, data):
         if isinstance(data, Mapping):
             data = data.copy()
+            if "userName" not in data and "user_name" in data:
+                data["userName"] = data["user_name"]
             if "userId" not in data and "user_id" in data:
                 data["userId"] = data["user_id"]
         return super().to_internal_value(data)
@@ -211,6 +239,22 @@ class SPMGetUserByUserIdSerializer(serializers.Serializer):
             data = data.copy()
             if "userId" not in data and "user_id" in data:
                 data["userId"] = data["user_id"]
+        return super().to_internal_value(data)
+
+
+class SPMGetUserByUserNameSerializer(serializers.Serializer):
+    """Serializer for getting user by userName"""
+    userName = serializers.CharField(
+        max_length=255,
+        source="user_name",
+        help_text="Username in SPM system"
+    )
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping):
+            data = data.copy()
+            if "userName" not in data and "user_name" in data:
+                data["userName"] = data["user_name"]
         return super().to_internal_value(data)
 
 

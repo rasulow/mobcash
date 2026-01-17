@@ -198,7 +198,7 @@ class SPMClient:
     def deposit(
         self,
         amount: Decimal,
-        user_id: int,
+        user_name: str,
         txn_id: str,
         remarks: str = ""
     ) -> Decimal:
@@ -220,7 +220,7 @@ class SPMClient:
         """
         payload = {
             "amount": float(amount),
-            "userId": user_id,
+            "userName": user_name,
             "txnId": txn_id,
             "remarks": remarks or f"Deposit {txn_id}",
         }
@@ -248,7 +248,7 @@ class SPMClient:
     def withdraw(
         self,
         amount: Decimal,
-        user_id: int,
+        user_name: str,
         txn_id: str,
         remarks: str = ""
     ) -> Decimal:
@@ -270,7 +270,7 @@ class SPMClient:
         """
         payload = {
             "amount": float(amount),
-            "userId": user_id,
+            "userName": user_name,
             "txnId": txn_id,
             "remarks": remarks or f"Withdraw {txn_id}",
         }
@@ -403,6 +403,24 @@ class SPMClient:
         data = response.get("data", {})
 
         return data
+
+    def get_user_by_username(self, user_name: str) -> dict:
+        """Get user details by userName."""
+        payload = {
+            "userName": user_name,
+        }
+
+        response = self._make_request("/user/get-by-username", payload)
+
+        if response.get("error"):
+            error = response["error"]
+            raise SPMApiError(
+                error.get("message", "User lookup failed"),
+                error.get("errorCode", "USER_LOOKUP_ERROR"),
+                response.get("statusCode", 400),
+            )
+
+        return response.get("data", {})
     
     def register_user(
         self,

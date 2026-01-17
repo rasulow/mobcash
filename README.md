@@ -76,77 +76,193 @@ All API endpoints are available in Swagger:
 - `GET /api/docs/` (Swagger UI)
 - `GET /api/redoc/` (ReDoc)
 
+### Auth header
+
+Use header for protected endpoints:
+- `Authorization: Bearer <access_token>`
+
+### Roles
+
+Roles are derived from `is_superuser` and Django groups:
+- `superadmin`: `is_superuser=True`
+- `main_cashier`: group `main_cashier`
+- `cashier`: group `cashier`
+
 ### Authentication (JWT Bearer)
 
 - `POST /api/auth/token/`: получить `access`/`refresh` + информацию о роли пользователя (`superadmin/main_cashier/cashier/user`)
 - `POST /api/auth/token/refresh/`: обновить `access` по `refresh`
 - `POST /api/auth/token/verify/`: проверить токен
+- `POST /api/auth/password/change/`: сменить пароль текущего пользователя (все роли)
+  - Body:
 
-Use header:
-- `Authorization: Bearer <access_token>`
+```json
+{
+  "old_password": "old",
+  "new_password": "new",
+  "new_password2": "new"
+}
+```
 
-### Client API (for logged-in users)
+### Main API (`/api/`)
 
+#### Wallets
+
+- `GET /api/wallets/`: список всех кошельков
+  - Access: `superadmin` или `main_cashier`
 - `GET /api/wallets/me/`: мой кошелёк (баланс/валюта)
-- `GET /api/transactions/`: список транзакций (обычный пользователь — только свои; `main_cashier` и `superadmin` — все, можно фильтровать)
-- `GET /api/transactions/{id}/`: детали транзакции (с проверкой прав)
-- `POST /api/transactions/`: создать транзакцию (делает внешний запрос `update-balance` и сохраняет историю)
-- `GET /api/wallet-transfers/`: список переводов кошельков (**только** `main_cashier`)
-- `POST /api/wallet-transfers/`: перевод из кошелька `main_cashier` пользователю с ролью `cashier` (**только** `main_cashier`)
+  - Access: любой авторизованный пользователь
 
-### Cashier API (create cashier accounts)
+#### Transactions
 
-- `POST /api/cashier/users/`: создать аккаунт **cashier** (доступ: `main_cashier` или `superadmin`, группа `cashier` ставится принудительно)
+- `GET /api/transactions/`: список транзакций
+  - Access:
+    - обычный пользователь: только свои
+    - `main_cashier` / `superadmin`: все (опционально `?user_id=...`)
+- `GET /api/transactions/{id}/`: детали транзакции
+  - Access: владелец или `main_cashier` / `superadmin`
+- `POST /api/transactions/`: создать транзакцию (внешний вызов `update-balance`)
+  - Body:
 
-### Superadmin API (admin-only)
+```json
+{
+  "referral_token": "abc123",
+  "amount": "10.00",
+  "type": "deposit",
+  "note": "optional"
+}
+```
 
-Доступ только для `is_superuser`:
+#### Wallet Transfers (main_cashier)
+
+- `GET /api/wallet-transfers/`: список переводов кошельков
+  - Access: только `main_cashier`
+  - Optional filter: `?transaction_type=deposit|withdraw`
+- `POST /api/wallet-transfers/`: перевод между локальными кошельками
+  - Access: только `main_cashier`
+  - Body:
+
+```json
+{
+  "to_user_id": 456,
+  "amount": "25.00",
+  "transaction_type": "deposit"
+}
+```
+
+Rules:
+- recipient must be in group `cashier`
+- cannot transfer to self
+- cannot transfer to `superadmin` or `main_cashier` via this endpoint
+
+### Cashier API (`/api/cashier/`)
+
+- `POST /api/cashier/users/`: создать аккаунт **cashier**
+  - Access: `main_cashier` или `superadmin`
+  - Note: группа `cashier` ставится принудительно
+
+### Admin API (`/api/admin/`)
+
+#### Users
 
 - `/api/admin/users/`:
   - `superadmin`: полный CRUD
-  - `main_cashier`: `GET` list/retrieve + `POST` create **cashier** (без возможности назначать группы/флаги)
-- `GET/POST /api/admin/groups/`, `GET/PATCH/PUT/DELETE /api/admin/groups/{id}/`: управление группами и permissions
-- `GET /api/admin/wallets/`, `PATCH/PUT /api/admin/wallets/{id}/`: просмотр/редактирование кошельков
-- `GET /api/admin/transactions/`, `GET /api/admin/transactions/{id}/`: просмотр всех транзакций
-- `GET/POST /api/admin/wallet-transfers/`, `GET /api/admin/wallet-transfers/{id}/`: просмотр всех переводов кошельков (+ создание перевода superadmin → main_cashier)
+  - `main_cashier`: `GET` list/retrieve + `POST` create **cashier**
+    - Видимость: `main_cashier` видит только пользователей группы `cashier` (не видит `superadmin`)
 
-### Wallet & Balance APIs (role-based)
+#### Groups (superadmin)
 
-#### 1) Superadmin can update own balance (set)
+- `GET/POST /api/admin/groups/`
+- `GET/PATCH/PUT/DELETE /api/admin/groups/{id}/`
 
-- `POST /api/admin/wallets/me/set-balance/`
-- Body:
+#### Wallets (superadmin)
 
-```json
-{ "balance": "1000.00" }
-```
-
-#### 2) Superadmin distributes from own balance to main_cashier
-
-- `POST /api/admin/wallet-transfers/`
-- Body:
+- `GET /api/admin/wallets/`
+- `POST /api/admin/wallets/`: создать кошелёк пользователю
+- `PATCH/PUT /api/admin/wallets/{id}/`
+- `GET /api/admin/wallets/me/`: мой кошелёк (superadmin)
+- `POST /api/admin/wallets/me/increase-balance/`: увеличить баланс суперюзера
+  - Body:
 
 ```json
-{ "to_user_id": 123, "amount": "50.00" }
+{ "amount": "1000.00" }
 ```
 
-- Rules:
-  - recipient must be in group `main_cashier`
-  - cannot transfer to self
+#### Transactions (superadmin)
 
-#### 3) Main_cashier distributes from own balance to cashiers
+- `GET /api/admin/transactions/`
+- `GET /api/admin/transactions/{id}/`
 
-- `POST /api/wallet-transfers/`
-- Body:
+#### Wallet Transfers (superadmin)
+
+- `GET /api/admin/wallet-transfers/`
+- `GET /api/admin/wallet-transfers/{id}/`
+- `POST /api/admin/wallet-transfers/`: перевод суперюзера -> `main_cashier`/`cashier` (deposit) или обратный (withdraw)
+  - Body:
 
 ```json
-{ "to_user_id": 456, "amount": "25.00" }
+{
+  "to_user_id": 123,
+  "amount": "50.00",
+  "transaction_type": "deposit"
+}
 ```
 
-- Rules:
-  - recipient must be in group `cashier`
-  - cannot transfer to self
-  - cannot transfer to `superadmin` or `main_cashier` via this endpoint
+### SPM API (`/api/spm/`)
+
+Access for deposit/withdraw/send-code:
+- `superadmin`, `main_cashier`, `cashier` (JWT required)
+
+- `POST /api/spm/deposit/`: депозит в SPM
+  - Request (preferred):
+
+```json
+{
+  "amount": 100,
+  "userName": "test24",
+  "txnId": "<TXN_ID>",
+  "remarks": "Test Deposit"
+}
+```
+
+  - Local wallet: уменьшается на `amount`
+
+- `POST /api/spm/withdraw/send-code/`: отправить код подтверждения на email пользователя SPM
+  - Request:
+
+```json
+{ "userName": "test24" }
+```
+
+  - Response returns `txnId` (UUID) which must be used in `/withdraw/`
+  - Optionally returns `confirmationCode` in debug mode
+
+- `POST /api/spm/withdraw/`: вывод из SPM (2-step)
+  - Request:
+
+```json
+{
+  "amount": 100,
+  "userName": "test24",
+  "txnId": "<TXN_ID>",
+  "confirmationCode": "123456",
+  "remarks": "Test Withdraw"
+}
+```
+
+  - Local wallet: увеличивается на `amount` после успеха
+
+- `POST /api/spm/deposit/get-status/`: статус депозита по `txnId`
+- `POST /api/spm/get-by-username/`: получить пользователя SPM по `userName`
+- `POST /api/spm/session/`: создать/удалить сессию
+- `POST /api/spm/register/`: регистрация пользователя в SPM
+
+### Integration API (`/api/integration/`)
+
+Access: публичный (`AllowAny`), без JWT.
+
+- `POST /api/integration/users/`: получить пользователей по date-range или lastupdated
+- `POST /api/integration/txns/`: получить транзакции по `type` и date-range/lastupdated
 
 ## Next steps (typical for MobCash)
 
