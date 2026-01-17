@@ -144,18 +144,13 @@ class SPMWithdrawSerializer(SPMTransactionSerializer):
 class SPMWithdrawSendCodeSerializer(serializers.Serializer):
     userName = serializers.CharField(
         source="user_name",
-        required=False,
+        required=True,
         allow_blank=False,
         help_text="Username in SPM system"
     )
-    userId = serializers.IntegerField(
-        source="user_id",
-        required=False,
-        help_text="User ID in SPM system (legacy)"
-    )
 
     def validate(self, attrs):
-        if not attrs.get("user_name") and attrs.get("user_id") is None:
+        if not attrs.get("user_name"):
             raise serializers.ValidationError({"userName": ["Обязательное поле."]})
         return attrs
 
@@ -164,8 +159,6 @@ class SPMWithdrawSendCodeSerializer(serializers.Serializer):
             data = data.copy()
             if "userName" not in data and "user_name" in data:
                 data["userName"] = data["user_name"]
-            if "userId" not in data and "user_id" in data:
-                data["userId"] = data["user_id"]
         return super().to_internal_value(data)
 
 

@@ -422,15 +422,21 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
 
         user_name = serializer.validated_data.get("user_name")
-        user_id = serializer.validated_data.get("user_id")
         ttl = 60 * 5
 
         try:
             spm_client = get_spm_client()
-            if user_name:
-                user_data = spm_client.get_user_by_username(user_name=user_name)
-            else:
-                user_data = spm_client.get_user_by_userid(user_id=user_id)
+            if not user_name:
+                return Response(
+                    {
+                        "error": {"message": "userName is required.", "errorCode": "USERNAME_REQUIRED"},
+                        "data": None,
+                        "statusCode": 400,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user_data = spm_client.get_user_by_username(user_name=user_name)
 
             email = None
             if isinstance(user_data, dict):
@@ -452,7 +458,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            spm_user_id = user_id
+            spm_user_id = None
             if spm_user_id is None and isinstance(user_data, dict):
                 spm_user_id = user_data.get("userId") or user_data.get("user_id")
             try:
