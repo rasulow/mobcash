@@ -410,7 +410,7 @@ class SPMClient:
             "userName": user_name,
         }
 
-        response = self._make_request("/user/get-by-username/", payload)
+        response = self._make_request("/user/get-by-username", payload)
 
         if response.get("error"):
             error = response["error"]
