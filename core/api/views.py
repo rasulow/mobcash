@@ -422,6 +422,7 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
 
         user_name = serializer.validated_data.get("user_name")
+        user_name = (str(user_name).strip() if user_name else "")
         ttl = 60 * 5
 
         try:
@@ -459,28 +460,16 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 )
 
             spm_user_id = None
-            if spm_user_id is None and isinstance(user_data, dict):
+            if isinstance(user_data, dict):
                 spm_user_id = user_data.get("userId") or user_data.get("user_id")
             try:
-                spm_user_id = int(spm_user_id)
+                spm_user_id = int(spm_user_id) if spm_user_id is not None else None
             except Exception:
                 spm_user_id = None
-            if not spm_user_id:
-                return Response(
-                    {
-                        "error": {
-                            "message": "userId not found for this user.",
-                            "errorCode": "USER_ID_NOT_FOUND",
-                        },
-                        "data": None,
-                        "statusCode": 400,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
             code = f"{secrets.randbelow(1000000):06d}"
             expires_at = timezone.now() + timedelta(seconds=ttl)
-            conf = SPMWithdrawConfirmation(user_id=spm_user_id, email=email, expires_at=expires_at)
+            conf = SPMWithdrawConfirmation(user_id=spm_user_id, user_name=user_name, email=email, expires_at=expires_at)
             conf.set_code(code)
             conf.save()
 
@@ -575,6 +564,8 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
         txn_id = serializer.validated_data.get("txn_id")
         confirmation_code = serializer.validated_data.get("confirmation_code")
 
+        user_name = (str(user_name).strip() if user_name else "")
+
         try:
             txn_uuid = uuid.UUID(str(txn_id))
         except Exception:
@@ -590,20 +581,13 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        spm_user_id = user_id
-        if spm_user_id is None:
-            if not user_name:
-                return Response(
-                    {
-                        "error": {"message": "userName is required.", "errorCode": "USERNAME_REQUIRED"},
-                        "data": None,
-                        "statusCode": 400,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        if not user_name and user_id is not None:
             try:
                 spm_client = get_spm_client()
-                user_data = spm_client.get_user_by_username(user_name=user_name)
+                user_data = spm_client.get_user_by_userid(user_id=user_id)
+                if isinstance(user_data, dict):
+                    user_name = user_data.get("userName") or user_data.get("user_name")
+                user_name = (str(user_name).strip() if user_name else "")
             except SPMApiError as e:
                 return Response(
                     {
@@ -613,29 +597,21 @@ class SPMTransactionViewSet(viewsets.GenericViewSet):
                     },
                     status=e.status_code,
                 )
-            if isinstance(user_data, dict):
-                spm_user_id = user_data.get("userId") or user_data.get("user_id")
-            try:
-                spm_user_id = int(spm_user_id)
-            except Exception:
-                spm_user_id = None
-            if not spm_user_id:
-                return Response(
-                    {
-                        "error": {
-                            "message": "userId not found for this user.",
-                            "errorCode": "USER_ID_NOT_FOUND",
-                        },
-                        "data": None,
-                        "statusCode": 400,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+
+        if not user_name:
+            return Response(
+                {
+                    "error": {"message": "userName is required.", "errorCode": "USERNAME_REQUIRED"},
+                    "data": None,
+                    "statusCode": 400,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         with db_transaction.atomic():
             conf = (
                 SPMWithdrawConfirmation.objects.select_for_update()
-                .filter(txn_id=txn_uuid, user_id=spm_user_id)
+                .filter(txn_id=txn_uuid, user_name=user_name)
                 .first()
             )
             if not conf or conf.is_used or conf.is_expired():

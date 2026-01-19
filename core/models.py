@@ -123,7 +123,8 @@ class WalletTransfer(models.Model):
 
 
 class SPMWithdrawConfirmation(models.Model):
-    user_id = models.PositiveIntegerField(db_index=True)
+    user_id = models.PositiveIntegerField(db_index=True, null=True, blank=True)
+    user_name = models.CharField(max_length=255, db_index=True, blank=True, default="")
     txn_id = models.UUIDField(unique=True, db_index=True, default=uuid.uuid4, editable=False)
     email = models.EmailField()
     code_hash = models.CharField(max_length=128)
@@ -151,5 +152,5 @@ class SPMWithdrawConfirmation(models.Model):
         self.used_at = timezone.now()
 
     def __str__(self) -> str:
-        return f"SPMWithdrawConfirmation user_id={self.user_id} txn_id={self.txn_id}"
+        return f"SPMWithdrawConfirmation user_name={self.user_name} user_id={self.user_id} txn_id={self.txn_id}"
 
