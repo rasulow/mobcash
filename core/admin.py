@@ -5,7 +5,7 @@ from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from django.contrib.auth.models import Group
 from unfold.admin import ModelAdmin
 
-from .models import Transaction, Wallet, WalletTransfer
+from .models import CurrencyConfig, Transaction, Wallet, WalletTransfer
 
 User = get_user_model()
 
@@ -127,3 +127,8 @@ class WalletTransferAdmin(ModelAdmin):
         "from_wallet__user__username",
         "to_wallet__user__username",
     )
+
+
+@admin.register(CurrencyConfig)
+class CurrencyConfigAdmin(ModelAdmin):
+    list_display = ("id", "currency", "updated_at")

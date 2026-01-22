@@ -18,11 +18,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from core.external_api import ExternalApiError, fetch_yildiztop_users_by_referral_token, post_yildiztop_update_balance
-from core.models import SPMWithdrawConfirmation, Transaction, Wallet, WalletTransfer
+from core.models import CurrencyConfig, SPMWithdrawConfirmation, Transaction, Wallet, WalletTransfer
 from core.spm_api import get_spm_client, SPMApiError
 
 from .permissions import IsMainCashier, IsSuperAdminOrMainCashierOrCashier
 from .serializers import (
+    CurrencyConfigSerializer,
     SPMDepositStatusResponseSerializer,
     SPMDepositStatusSerializer,
     SPMGetUserByUserIdSerializer,
@@ -169,6 +170,18 @@ class TransactionViewSet(viewsets.GenericViewSet):
             pass
 
         return Response(TransactionSerializer(tx).data, status=status.HTTP_201_CREATED)
+
+
+class CurrencyConfigViewSet(viewsets.GenericViewSet):
+    queryset = CurrencyConfig.objects.all()
+    serializer_class = CurrencyConfigSerializer
+    permission_classes = [AllowAny]
+
+    def list(self, request, *args, **kwargs):
+        obj = CurrencyConfig.objects.order_by("id").first()
+        if not obj:
+            obj = CurrencyConfig.objects.create(currency=1.0)
+        return Response(CurrencyConfigSerializer(obj).data)
 
 
 class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
