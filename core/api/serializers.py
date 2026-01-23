@@ -72,10 +72,18 @@ class WalletTransferCreateSerializer(serializers.Serializer):
 
 
 class CurrencyConfigSerializer(serializers.ModelSerializer):
+    currency = serializers.SerializerMethodField()
 
     class Meta:
         model = CurrencyConfig
         fields = ["currency", "updated_at"]
+
+    def get_currency(self, obj: CurrencyConfig) -> str:
+        try:
+            rate = float(obj.currency)
+        except Exception:
+            rate = 0.0
+        return f"1USD={rate:.2f}TMT"
 
 
 class SPMTransactionSerializer(serializers.Serializer):
