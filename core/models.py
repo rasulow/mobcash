@@ -154,15 +154,3 @@ class SPMWithdrawConfirmation(models.Model):
     def __str__(self) -> str:
         return f"SPMWithdrawConfirmation user_name={self.user_name} user_id={self.user_id} txn_id={self.txn_id}"
 
-
-class CurrencyConfig(models.Model):
-    currency = models.FloatField(default=1.0)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Курс валюты"
-        verbose_name_plural = "Курсы валют"
-
-    def __str__(self) -> str:
-        return str(self.currency)
-

@@ -1,5 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
+import io
+from contextlib import redirect_stdout
 
 import secrets
 import uuid
@@ -18,12 +20,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from core.external_api import ExternalApiError, fetch_yildiztop_users_by_referral_token, post_yildiztop_update_balance
-from core.models import CurrencyConfig, SPMWithdrawConfirmation, Transaction, Wallet, WalletTransfer
+from core.models import SPMWithdrawConfirmation, Transaction, Wallet, WalletTransfer
 from core.spm_api import get_spm_client, SPMApiError
 
 from .permissions import IsMainCashier, IsSuperAdminOrMainCashierOrCashier
 from .serializers import (
-    CurrencyConfigSerializer,
     SPMDepositStatusResponseSerializer,
     SPMDepositStatusSerializer,
     SPMGetUserByUserIdSerializer,
@@ -173,15 +174,35 @@ class TransactionViewSet(viewsets.GenericViewSet):
 
 
 class CurrencyConfigViewSet(viewsets.GenericViewSet):
-    queryset = CurrencyConfig.objects.all()
-    serializer_class = CurrencyConfigSerializer
     permission_classes = [AllowAny]
 
     def list(self, request, *args, **kwargs):
-        obj = CurrencyConfig.objects.order_by("id").first()
-        if not obj:
-            obj = CurrencyConfig.objects.create(currency=1.0)
-        return Response(CurrencyConfigSerializer(obj).data)
+        # Return live JSON from manat.py (no file generation)
+        try:
+            from manat import get_turkmenistan_black_market_rate
+
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                data = get_turkmenistan_black_market_rate()
+
+            if not isinstance(data, dict):
+                return Response({"detail": "Invalid response from manat script."}, status=status.HTTP_502_BAD_GATEWAY)
+
+            rate = data.get("exchange_rate")
+            try:
+                rate_f = float(rate)
+            except Exception:
+                rate_f = None
+
+            if rate_f is not None:
+                data["currency"] = f"1USD={rate_f:.2f}TMT"
+
+            return Response(data)
+        except Exception as e:
+            return Response(
+                {"detail": f"Failed to get currency: {str(e)}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
 
 class WalletTransferViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):

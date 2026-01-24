@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from core.models import CurrencyConfig, Transaction, Wallet, WalletTransfer
+from core.models import Transaction, Wallet, WalletTransfer
 
 User = get_user_model()
 
@@ -69,21 +69,6 @@ class WalletTransferCreateSerializer(serializers.Serializer):
     to_user_id = serializers.IntegerField()
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
     transaction_type = serializers.ChoiceField(choices=['deposit', 'withdraw'], help_text="Transaction type: deposit or withdraw")
-
-
-class CurrencyConfigSerializer(serializers.ModelSerializer):
-    currency = serializers.SerializerMethodField()
-
-    class Meta:
-        model = CurrencyConfig
-        fields = ["currency", "updated_at"]
-
-    def get_currency(self, obj: CurrencyConfig) -> str:
-        try:
-            rate = float(obj.currency)
-        except Exception:
-            rate = 0.0
-        return f"1USD={rate:.2f}TMT"
 
 
 class SPMTransactionSerializer(serializers.Serializer):
